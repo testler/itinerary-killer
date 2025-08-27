@@ -49,7 +49,6 @@ A modern web application for planning and organizing activities in Orlando, Flor
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
-- `npm run deploy` - Deploy to GitHub Pages
 
 ### Project Structure
 
@@ -76,7 +75,7 @@ src/
 - **Styling**: CSS with modern design principles
 - **Icons**: Lucide React
 - **Database**: Spacetime DB (with localStorage fallback)
-- **Deployment**: GitHub Pages
+- **Deployment**: GitHub Pages with GitHub Actions
 
 ## 🗄️ Database Integration
 
@@ -97,23 +96,28 @@ REACT_APP_SPACETIME_TOKEN=your_spacetime_db_token
 
 ## 🚀 Deployment
 
-### GitHub Pages
+### GitHub Pages (Recommended)
 
-1. **Build the project**
+This project uses **GitHub Actions** for automatic deployment:
+
+1. **Push to GitHub**: Simply push your code to the `main` branch
+2. **Auto-deploy**: GitHub Actions automatically builds and deploys your app
+3. **Live site**: Your app is available at `https://YOUR_USERNAME.github.io/itinerary-killer/`
+
+#### Setup Steps:
+
+1. Create a GitHub repository named `itinerary-killer`
+2. Make it **Public** (required for free GitHub Pages)
+3. Push your code:
    ```bash
-   npm run build
+   git remote add origin https://github.com/YOUR_USERNAME/itinerary-killer.git
+   git branch -M main
+   git push -u origin main
    ```
+4. Enable GitHub Pages in repository Settings → Pages
+5. Set source to "Deploy from a branch" and select `gh-pages`
 
-2. **Deploy to GitHub Pages**
-   ```bash
-   npm run deploy
-   ```
-
-3. **Configure GitHub Pages**
-   - Go to your repository settings
-   - Navigate to Pages section
-   - Set source to "Deploy from a branch"
-   - Select `gh-pages` branch
+**That's it!** Every push to `main` will automatically update your live site.
 
 ### Manual Deployment
 
