@@ -9,22 +9,28 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "date-fns": "^2.30.0",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.294.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "leaflet": "^1.9.4",
-    "react-leaflet": "^4.2.1",
-    "lucide-react": "^0.294.0",
-    "date-fns": "^2.30.0"
+    "react-leaflet": "^4.2.1"
   },
   "devDependencies": {
+    "@types/leaflet": "^1.9.8",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",
-    "@types/leaflet": "^1.9.8",
     "@vitejs/plugin-react": "^4.1.1",
-    "vite": "^4.5.0",
-    "typescript": "^5.2.2"
+    "typescript": "^5.2.2",
+    "vite": "^4.5.0"
   },
-  "keywords": ["itinerary", "orlando", "travel", "map", "location"],
+  "keywords": [
+    "itinerary",
+    "orlando",
+    "travel",
+    "map",
+    "location"
+  ],
   "author": "Joshua",
   "license": "MIT"
 }
