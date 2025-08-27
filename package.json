@@ -1,0 +1,32 @@
+{
+  "name": "itinerary-killer",
+  "version": "1.0.0",
+  "description": "An app for organizing activities in Orlando, Florida with location-based features",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "gh-pages -d dist"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^4.2.1",
+    "lucide-react": "^0.294.0",
+    "date-fns": "^2.30.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@types/leaflet": "^1.9.8",
+    "@vitejs/plugin-react": "^4.1.1",
+    "vite": "^4.5.0",
+    "gh-pages": "^6.1.0",
+    "typescript": "^5.2.2"
+  },
+  "keywords": ["itinerary", "orlando", "travel", "map", "location"],
+  "author": "Joshua",
+  "license": "MIT"
+}
