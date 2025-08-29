@@ -82,3 +82,55 @@ export function formatDistance(distance: number): string {
     return `${distance.toFixed(1)} mi`;
   }
 }
+
+// Fetch place details (including opening hours) from Google Places API
+export async function fetchPlaceDetailsFromGoogle(name: string, address: string): Promise<any> {
+  const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+  // Step 1: Find place_id using Place Search
+  const searchUrl = `https://maps.googleapis.com/maps/api/place/findplacefromtext/json?input=${encodeURIComponent(name + ' ' + address)}&inputtype=textquery&fields=place_id&key=${apiKey}`;
+  const searchResp = await fetch(searchUrl);
+  const searchData = await searchResp.json();
+  if (!searchData.candidates || !searchData.candidates[0]?.place_id) {
+    throw new Error('No place found');
+  }
+  const placeId = searchData.candidates[0].place_id;
+
+  // Step 2: Get place details (including opening_hours)
+  const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name,opening_hours,formatted_address&key=${apiKey}`;
+  const detailsResp = await fetch(detailsUrl);
+  const detailsData = await detailsResp.json();
+  if (detailsData.status !== 'OK') {
+    throw new Error('Failed to fetch place details');
+  }
+  return detailsData.result;
+}
+
+export async function fetchPlaceAutocomplete(input: string): Promise<Array<{ description: string; place_id: string }>> {
+  const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+  const url = `https://maps.googleapis.com/maps/api/place/autocomplete/json?input=${encodeURIComponent(input)}&key=${apiKey}`;
+  const resp = await fetch(url);
+  const data = await resp.json();
+  if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+    throw new Error('Autocomplete failed');
+  }
+  return (data.predictions || []).map((p: any) => ({ description: p.description, place_id: p.place_id }));
+}
+
+export async function fetchPlaceDetailsByPlaceId(placeId: string): Promise<any> {
+  const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
+  const fields = [
+    'name',
+    'formatted_address',
+    'geometry/location',
+    'opening_hours',
+    'types',
+    'editorial_summary'
+  ].join(',');
+  const detailsUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=${fields}&key=${apiKey}`;
+  const detailsResp = await fetch(detailsUrl);
+  const detailsData = await detailsResp.json();
+  if (detailsData.status !== 'OK') {
+    throw new Error('Failed to fetch place details');
+  }
+  return detailsData.result;
+}

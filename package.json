@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "date-fns": "^2.30.0",
+    "dayjs": "^1.11.14",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.294.0",
     "react": "^18.2.0",

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, MapPin, Search } from 'lucide-react';
 import { ItineraryItem, UserLocation } from '../types';
-import { getCoordinatesFromAddress } from '../utils/location';
+import { fetchPlaceDetailsFromGoogle, getCoordinatesFromAddress, fetchPlaceAutocomplete, fetchPlaceDetailsByPlaceId } from '../utils/location';
 
 interface AddItemModalProps {
   onClose: () => void;
@@ -32,12 +32,21 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
     priority: 'medium' as const,
     estimatedDuration: 60,
     cost: 0,
-    notes: ''
+    notes: '',
+    isOpen: true
   });
   
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [searching, setSearching] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [openingHours, setOpeningHours] = useState<{ [day: string]: { open: string; close: string } | null }>({});
+  const [fetchingHours, setFetchingHours] = useState(false);
+  const [fetchHoursError, setFetchHoursError] = useState<string | null>(null);
+  const [autoPopulating, setAutoPopulating] = useState(false);
+  const [autoPopulateError, setAutoPopulateError] = useState<string | null>(null);
+  const [addressSuggestions, setAddressSuggestions] = useState<Array<{ description: string; place_id: string }>>([]);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [addressDebounceTimer, setAddressDebounceTimer] = useState<any>(null);
 
   // Set default location to user's location if available
   useEffect(() => {
@@ -78,6 +87,76 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
       setErrors(prev => ({ ...prev, address: 'Error searching for address. Please try again.' }));
     } finally {
       setSearching(false);
+    }
+  };
+
+  const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    handleInputChange(e);
+    const value = e.target.value;
+    if (addressDebounceTimer) clearTimeout(addressDebounceTimer);
+    if (!value.trim()) {
+      setAddressSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      try {
+        if (isSlowConnection()) {
+          setAddressSuggestions([]);
+          return;
+        }
+        setAddressLoading(true);
+        const results = await fetchPlaceAutocomplete(value);
+        setAddressSuggestions(results);
+      } catch (err) {
+        setAddressSuggestions([]);
+      } finally {
+        setAddressLoading(false);
+      }
+    }, 300);
+    setAddressDebounceTimer(timer);
+  };
+
+  const handleSelectSuggestion = async (s: { description: string; place_id: string }) => {
+    try {
+      if (isSlowConnection()) return; // avoid fetching on slow networks
+      setAddressLoading(true);
+      const place = await fetchPlaceDetailsByPlaceId(s.place_id);
+      // Populate fields
+      const newTitle = place.name || formData.title;
+      const newAddress = place.formatted_address || s.description;
+      let newLocation = location;
+      if (place.geometry && place.geometry.location) {
+        newLocation = {
+          lat: place.geometry.location.lat,
+          lng: place.geometry.location.lng
+        };
+      }
+      let newDescription = formData.description;
+      if (place.editorial_summary && place.editorial_summary.overview) {
+        newDescription = place.editorial_summary.overview;
+      } else if (place.types && place.types.length) {
+        newDescription = place.types.map((t: string) => t.replace(/_/g, ' ')).join(', ');
+      }
+      let newOpeningHours: { [day: string]: { open: string; close: string } | null } = {};
+      if (place.opening_hours && place.opening_hours.periods) {
+        for (let i = 0; i < 7; i++) {
+          const period = place.opening_hours.periods.find((p: any) => p.open.day === i);
+          if (period) {
+            newOpeningHours[i] = {
+              open: period.open.time.replace(/(\d{2})(\d{2})/, '$1:$2'),
+              close: period.close?.time ? period.close.time.replace(/(\d{2})(\d{2})/, '$1:$2') : '',
+            };
+          } else {
+            newOpeningHours[i] = null;
+          }
+        }
+      }
+      setFormData(prev => ({ ...prev, title: newTitle, address: newAddress, description: newDescription }));
+      setLocation(newLocation);
+      setOpeningHours(newOpeningHours);
+      setAddressSuggestions([]);
+    } finally {
+      setAddressLoading(false);
     }
   };
 
@@ -129,10 +208,121 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
       priority: formData.priority,
       estimatedDuration: formData.estimatedDuration,
       cost: formData.cost,
-      notes: formData.notes.trim()
+      notes: formData.notes.trim(),
+      isOpen: formData.isOpen,
+      openingHours: openingHours,
     };
 
     onAdd(newItem);
+  };
+
+  // Fetch opening hours from Google Places API
+  const handleFetchHours = async () => {
+    setFetchingHours(true);
+    setFetchHoursError(null);
+    try {
+      const { title, address } = formData;
+      if (!title.trim() || !address.trim()) {
+        setFetchHoursError('Please enter both a title and address first.');
+        setFetchingHours(false);
+        return;
+      }
+      const place = await import('../utils/location').then(m => m.fetchPlaceDetailsFromGoogle(title, address));
+      if (place.opening_hours && place.opening_hours.periods) {
+        // Google returns periods as array of {open: {day, time}, close: {day, time}}
+        const newHours: { [day: string]: { open: string; close: string } | null } = {};
+        for (let i = 0; i < 7; i++) {
+          const period = place.opening_hours.periods.find((p: any) => p.open.day === i);
+          if (period) {
+            newHours[i] = {
+              open: period.open.time.replace(/(\d{2})(\d{2})/, '$1:$2'),
+              close: period.close?.time ? period.close.time.replace(/(\d{2})(\d{2})/, '$1:$2') : '',
+            };
+          } else {
+            newHours[i] = null;
+          }
+        }
+        setOpeningHours(newHours);
+      } else {
+        setFetchHoursError('No opening hours found for this place.');
+      }
+    } catch (err: any) {
+      setFetchHoursError('Failed to fetch hours: ' + (err.message || err));
+    } finally {
+      setFetchingHours(false);
+    }
+  };
+
+  // Fully auto-populate all fields using Google Places API
+  const handleAutoPopulate = async () => {
+    setAutoPopulating(true);
+    setAutoPopulateError(null);
+    try {
+      const { title, address } = formData;
+      if (!title.trim() && !address.trim()) {
+        setAutoPopulateError('Please enter at least a title or address.');
+        setAutoPopulating(false);
+        return;
+      }
+      // Use whichever is filled, or both
+      const place = await fetchPlaceDetailsFromGoogle(title, address);
+      // Title
+      const newTitle = place.name || formData.title;
+      // Address
+      const newAddress = place.formatted_address || formData.address;
+      // Description (use Google editorial_summary or types if available)
+      let newDescription = formData.description;
+      if (place.editorial_summary && place.editorial_summary.overview) {
+        newDescription = place.editorial_summary.overview;
+      } else if (place.types && place.types.length) {
+        newDescription = place.types.map((t: string) => t.replace(/_/g, ' ')).join(', ');
+      }
+      // Location
+      let newLocation = location;
+      if (place.geometry && place.geometry.location) {
+        newLocation = {
+          lat: place.geometry.location.lat,
+          lng: place.geometry.location.lng
+        };
+      } else if (newAddress && !location) {
+        // fallback: geocode address
+        const coords = await getCoordinatesFromAddress(newAddress);
+        if (coords) newLocation = coords;
+      }
+      // Opening hours
+      let newOpeningHours: { [day: string]: { open: string; close: string } | null } = {};
+      if (place.opening_hours && place.opening_hours.periods) {
+        for (let i = 0; i < 7; i++) {
+          const period = place.opening_hours.periods.find((p: any) => p.open.day === i);
+          if (period) {
+            newOpeningHours[i] = {
+              open: period.open.time.replace(/(\d{2})(\d{2})/, '$1:$2'),
+              close: period.close?.time ? period.close.time.replace(/(\d{2})(\d{2})/, '$1:$2') : '',
+            };
+          } else {
+            newOpeningHours[i] = null;
+          }
+        }
+      }
+      setFormData(prev => ({
+        ...prev,
+        title: newTitle,
+        address: newAddress,
+        description: newDescription,
+      }));
+      setLocation(newLocation);
+      setOpeningHours(newOpeningHours);
+    } catch (err: any) {
+      setAutoPopulateError('Failed to auto-populate: ' + (err.message || err));
+    } finally {
+      setAutoPopulating(false);
+    }
+  };
+
+  const isSlowConnection = () => {
+    const nav = (navigator as any);
+    const type = nav?.connection?.effectiveType;
+    return type && (type === '2g' || type === 'slow-2g' || type === '3g');
   };
 
   return (
@@ -154,8 +344,10 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
               name="title"
               value={formData.title}
               onChange={handleInputChange}
+              onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+              className={`scroll-into-view ${errors.title ? 'error' : ''}`}
               placeholder="e.g., Visit Disney World"
-              className={errors.title ? 'error' : ''}
+              aria-label="Activity title"
             />
             {errors.title && <span className="error-text">{errors.title}</span>}
           </div>
@@ -167,9 +359,11 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
               name="description"
               value={formData.description}
               onChange={handleInputChange}
+              onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+              className={`scroll-into-view ${errors.description ? 'error' : ''}`}
               placeholder="Describe what you want to do..."
               rows={3}
-              className={errors.description ? 'error' : ''}
+              aria-label="Activity description"
             />
             {errors.description && <span className="error-text">{errors.description}</span>}
           </div>
@@ -182,10 +376,13 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
                 id="address"
                 name="address"
                 value={formData.address}
-                onChange={handleInputChange}
+                onChange={handleAddressChange}
+                onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                className={`scroll-into-view ${errors.address ? 'error' : ''}`}
                 placeholder="Enter address or search for location"
-                className={errors.address ? 'error' : ''}
                 style={{ flex: 1 }}
+                aria-autocomplete="list"
+                aria-expanded={addressSuggestions.length > 0}
               />
               <button
                 type="button"
@@ -199,11 +396,33 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
                   borderRadius: '6px',
                   cursor: 'pointer'
                 }}
+                aria-label="Search for address"
               >
                 {searching ? '...' : <Search size={16} />}
               </button>
             </div>
             {errors.address && <span className="error-text">{errors.address}</span>}
+            {addressLoading && (
+              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>Searching...</p>
+            )}
+            {addressSuggestions.length > 0 && (
+              <ul style={{
+                listStyle: 'none',
+                marginTop: '0.5rem',
+                border: '1px solid #e5e7eb',
+                borderRadius: 6,
+                maxHeight: 200,
+                overflowY: 'auto',
+                background: 'white'
+              }} role="listbox">
+                {addressSuggestions.map(s => (
+                  <li key={s.place_id} style={{ padding: '0.5rem 0.75rem', cursor: 'pointer' }}
+                      onClick={() => handleSelectSuggestion(s)} role="option" aria-selected="false">
+                    {s.description}
+                  </li>
+                ))}
+              </ul>
+            )}
             {location && (
               <p style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '0.25rem' }}>
                 📍 Location set: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
@@ -219,6 +438,9 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
                 name="category"
                 value={formData.category}
                 onChange={handleInputChange}
+                onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                className="scroll-into-view"
+                aria-label="Activity category"
               >
                 {CATEGORIES.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
@@ -233,6 +455,9 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
                 name="priority"
                 value={formData.priority}
                 onChange={handleInputChange}
+                onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                className="scroll-into-view"
+                aria-label="Activity priority"
               >
                 {PRIORITIES.map(priority => (
                   <option key={priority} value={priority}>
@@ -252,8 +477,10 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
                 name="estimatedDuration"
                 value={formData.estimatedDuration}
                 onChange={handleInputChange}
+                onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                className={`scroll-into-view ${errors.estimatedDuration ? 'error' : ''}`}
                 min="1"
-                className={errors.estimatedDuration ? 'error' : ''}
+                aria-label="Activity estimated duration"
               />
               {errors.estimatedDuration && <span className="error-text">{errors.estimatedDuration}</span>}
             </div>
@@ -266,12 +493,31 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
                 name="cost"
                 value={formData.cost}
                 onChange={handleInputChange}
+                onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+                className={`scroll-into-view ${errors.cost ? 'error' : ''}`}
                 min="0"
                 step="0.01"
-                className={errors.cost ? 'error' : ''}
+                aria-label="Activity estimated cost"
               />
               {errors.cost && <span className="error-text">{errors.cost}</span>}
             </div>
+          </div>
+
+          <div className="form-group">
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <input
+                type="checkbox"
+                id="isOpen"
+                name="isOpen"
+                checked={formData.isOpen}
+                onChange={(e) => setFormData(prev => ({ ...prev, isOpen: e.target.checked }))}
+                aria-label="Is activity currently open"
+              />
+              <span>🟢 This place is currently open</span>
+            </label>
+            <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
+              Uncheck if the place is closed or you want to mark it as unavailable
+            </p>
           </div>
 
           <div className="form-group">
@@ -281,15 +527,39 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
               name="notes"
               value={formData.notes}
               onChange={handleInputChange}
+              onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
+              className="scroll-into-view"
               placeholder="Any additional details..."
               rows={2}
+              aria-label="Additional notes for activity"
             />
           </div>
 
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+          <div className="form-group">
+            <label>Opening Hours</label>
+            <button type="button" onClick={handleFetchHours} disabled={fetchingHours} style={{marginLeft: 8}} aria-label="Fetch opening hours from Google">
+              {fetchingHours ? 'Fetching...' : 'Auto-populate from Google'}
+            </button>
+            {fetchHoursError && <span className="error-text">{fetchHoursError}</span>}
+            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginTop: 8}}>
+              {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((day, i) => (
+                <div key={day} style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
+                  <span style={{fontWeight: 500}}>{day}</span>
+                  <div style={{display: 'flex', gap: 4, alignItems: 'center'}}>
+                    <input type="time" value={openingHours[i]?.open || ''} onChange={e => setOpeningHours(h => ({...h, [i]: {...(h[i]||{}), open: e.target.value}}))} aria-label={`Open time for ${day}`} />
+                    <span>-</span>
+                    <input type="time" value={openingHours[i]?.close || ''} onChange={e => setOpeningHours(h => ({...h, [i]: {...(h[i]||{}), close: e.target.value}}))} aria-label={`Close time for ${day}`} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }} className="sticky-actions">
             <button
               type="button"
               onClick={onClose}
+              aria-label="Cancel adding activity"
               style={{
                 padding: '0.75rem 1.5rem',
                 background: '#6b7280',
@@ -301,9 +571,15 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
             >
               Cancel
             </button>
-            <button type="submit" className="submit-button">
+            <button type="submit" className="submit-button" aria-label="Add activity">
               Add Activity
             </button>
+          </div>
+          <div className="form-group">
+            <button type="button" onClick={handleAutoPopulate} disabled={autoPopulating} style={{marginBottom: 8}} aria-label="Auto-populate all fields from Google">
+              {autoPopulating ? 'Auto-populating...' : 'Auto-populate All Fields from Google'}
+            </button>
+            {autoPopulateError && <span className="error-text">{autoPopulateError}</span>}
           </div>
         </form>
       </div>

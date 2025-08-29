@@ -43,6 +43,20 @@ export function useSpacetimeDB() {
     }
   };
 
+  const addItems = async (newItems: ItineraryItem[]): Promise<void> => {
+    setLoading(true);
+    try {
+      // Simulate API call delay
+      await new Promise(resolve => setTimeout(resolve, 100));
+      setItems(prev => [...prev, ...newItems]);
+    } catch (error) {
+      console.error('Error adding items:', error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const updateItem = async (id: string, updates: Partial<ItineraryItem>): Promise<void> => {
     setLoading(true);
     try {
@@ -101,6 +115,7 @@ export function useSpacetimeDB() {
     items,
     loading,
     addItem,
+    addItems,
     updateItem,
     deleteItem,
     getItemsByCategory,

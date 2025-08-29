@@ -14,6 +14,10 @@ export interface ItineraryItem {
   estimatedDuration: number; // in minutes
   cost: number;
   notes: string;
+  isOpen: boolean; // whether the place is currently open
+  openingHours?: {
+    [day: string]: { open: string; close: string } | null;
+  };
   createdAt: Date;
   completed: boolean;
 }

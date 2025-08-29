@@ -26,17 +26,20 @@ body {
   place-items: center;
   min-width: 320px;
   min-height: 100vh;
+  overflow-x: hidden;
 }
 
 #root {
   width: 100%;
   height: 100vh;
+  overflow-x: hidden;
 }
 
 .app {
   display: flex;
   height: 100vh;
   background: #f8fafc;
+  overflow-x: hidden;
 }
 
 .sidebar {
@@ -62,8 +65,75 @@ body {
 }
 
 .sidebar-header p {
-  opacity: 0.8;
+  opacity: 0.95;
   font-size: 0.875rem;
+  margin-bottom: 1rem;
+}
+
+.location-status {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  padding: 0.5rem;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.95);
+}
+
+.status-item.loading {
+  background: rgba(14, 165, 233, 0.2);
+  color: #0ea5e9;
+}
+
+.status-item.success {
+  background: rgba(34, 197, 94, 0.2);
+  color: #22c55e;
+}
+
+.status-item.error {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.status-item svg {
+  flex-shrink: 0;
+}
+
+.status-item .coordinates {
+  font-size: 0.75rem;
+  opacity: 0.8;
+  margin-top: 0.25rem;
+  font-family: monospace;
+}
+
+.status-item .accuracy {
+  font-size: 0.75rem;
+  opacity: 0.7;
+  margin-top: 0.125rem;
+}
+
+.retry-button {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  transition: all 0.2s;
+}
+
+.retry-button:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
 }
 
 .sidebar-content {
@@ -99,12 +169,208 @@ body {
   cursor: pointer;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
   transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 48px;
+  min-height: 48px;
 }
 
-.location-button:hover {
+.loading-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.loading-text {
+  font-size: 0.625rem;
+  color: #0ea5e9;
+  white-space: nowrap;
+}
+
+.location-button:hover:not(:disabled) {
   background: #f8fafc;
   transform: translateY(-1px);
   box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.location-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.location-button.loading {
+  background: #f0f9ff;
+  border-color: #0ea5e9;
+}
+
+.location-button.error {
+  background: #fef2f2;
+  border-color: #ef4444;
+}
+
+.location-button.error:hover:not(:disabled) {
+  background: #fee2e2;
+}
+
+.location-error-tooltip {
+  position: absolute;
+  top: 4rem;
+  right: 1rem;
+  z-index: 1001;
+  background: #fef2f2;
+  border: 1px solid #ef4444;
+  border-radius: 8px;
+  padding: 0.75rem;
+  max-width: 300px;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  animation: slideIn 0.3s ease-out;
+}
+
+.location-error-tooltip svg {
+  color: #ef4444;
+  flex-shrink: 0;
+  margin-top: 0.125rem;
+}
+
+.location-error-tooltip span {
+  color: #7f1d1d;
+  font-size: 0.875rem;
+  line-height: 1.4;
+}
+
+.timeout-help {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.timeout-help p {
+  color: #991b1b;
+  font-size: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.timeout-help ul {
+  margin: 0;
+  padding-left: 1rem;
+  color: #7f1d1d;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+.timeout-help li {
+  margin-bottom: 0.25rem;
+}
+
+.gps-tips {
+  margin-top: 0.5rem;
+}
+
+.tip-priority {
+  margin-bottom: 0.75rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  border-left: 3px solid;
+}
+
+.tip-priority.high {
+  background: rgba(239, 68, 68, 0.1);
+  border-left-color: #ef4444;
+}
+
+.tip-priority.medium {
+  background: rgba(245, 158, 11, 0.1);
+  border-left-color: #f59e0b;
+}
+
+.tip-priority.low {
+  background: rgba(34, 197, 94, 0.1);
+  border-left-color: #22c55e;
+}
+
+.tip-priority span {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  font-size: 0.75rem;
+}
+
+.tip-priority.high span {
+  color: #dc2626;
+}
+
+.tip-priority.medium span {
+  color: #d97706;
+}
+
+.tip-priority.low span {
+  color: #16a34a;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.map-instruction {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  z-index: 1000;
+  pointer-events: none;
+  animation: fadeInOut 3s ease-in-out infinite;
+}
+
+.map-instruction svg {
+  color: #3b82f6;
+}
+
+.manual-location-hint {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background: rgba(34, 197, 94, 0.2);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: #16a34a;
+  text-align: center;
+}
+
+@keyframes fadeInOut {
+  0%, 100% { opacity: 0.7; }
+  50% { opacity: 1; }
 }
 
 .add-item-button {
@@ -157,7 +423,7 @@ body {
 
 .itinerary-item p {
   font-size: 0.875rem;
-  color: #64748b;
+  color: #374151;
   margin-bottom: 0.5rem;
 }
 
@@ -262,30 +528,170 @@ body {
   cursor: not-allowed;
 }
 
+/* Search and filter styles */
+.search-input {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.search-input:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.search-clear-button:hover {
+  color: #374151;
+}
+
+.filter-select {
+  transition: border-color 0.2s ease;
+}
+
+.filter-select:focus {
+  border-color: #3b82f6;
+  outline: none;
+}
+
+/* Open/Closed status button */
+.status-toggle-button {
+  transition: all 0.2s ease;
+}
+
+.status-toggle-button:hover {
+  opacity: 0.8;
+  transform: scale(1.05);
+}
+
+/* Mobile optimizations */
+html, body, #root {
+  height: 100dvh;
+}
+
+.app {
+  height: 100dvh;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+/* Sidebar and content adjustments for small screens */
 @media (max-width: 768px) {
-  .sidebar {
-    width: 100%;
-    height: 100vh;
-    position: absolute;
-    z-index: 1000;
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
+  .sidebar-header {
+    padding-top: calc(1.5rem + env(safe-area-inset-top));
   }
-  
-  .sidebar.open {
-    transform: translateX(0);
-  }
-  
+
   .sidebar-toggle {
-    position: absolute;
-    top: 1rem;
-    left: 1rem;
-    z-index: 1001;
-    background: white;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 0.75rem;
-    cursor: pointer;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    top: calc(1rem + env(safe-area-inset-top));
+    padding: 0.875rem; /* larger touch target */
+    min-width: 44px;
+    min-height: 44px;
   }
+
+  .location-button {
+    top: calc(1rem + env(safe-area-inset-top));
+    right: calc(1rem + env(safe-area-inset-right));
+    min-width: 48px;
+    min-height: 48px;
+  }
+
+  .add-item-button {
+    bottom: calc(1rem + env(safe-area-inset-bottom));
+    right: calc(1rem + env(safe-area-inset-right));
+    width: 64px; /* easier tap */
+    height: 64px;
+  }
+
+  .modal-content {
+    position: relative;
+    padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+  .modal-content .sticky-actions {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 0.75rem;
+    padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    z-index: 5;
+  }
+
+  .form-group input,
+  .form-group textarea,
+  .form-group select,
+  .submit-button,
+  .close-button {
+    min-height: 44px; /* Apple HIG recommended */
+  }
+
+  .leaflet-container {
+    touch-action: manipulation; /* reduce 300ms delay */
+  }
+
+  .filters-sticky {
+    position: sticky;
+    top: calc(env(safe-area-inset-top) + 0.5rem);
+    background: #f8fafc;
+    z-index: 10;
+    padding-top: 0.25rem;
+  }
+}
+
+/* Utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 768px) {
+  .itinerary-item {
+    padding: 0.75rem;
+  }
+}
+
+/* Smooth scroll for focused inputs in modal */
+.scroll-into-view {
+  scroll-margin-top: 80px;
+}
+
+/* Improve general text contrast in sidebar header */
+.sidebar-header p {
+  opacity: 0.95;
+  font-size: 0.875rem;
+}
+
+/* Strengthen error tooltip text color */
+.location-error-tooltip span {
+  color: #7f1d1d;
+}
+
+/* Accessible focus outlines */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(59, 130, 246, 0.6);
+  outline-offset: 2px;
+}
+
+/* Strengthen filter labels and values */
+.filters-sticky {
+  color: #374151;
+}
+
+.status-item {
+  color: rgba(255, 255, 255, 0.95);
+}
+
+/* Search hint text contrast */
+.search-input::placeholder {
+  color: #6b7280;
 }
