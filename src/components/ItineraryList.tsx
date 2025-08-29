@@ -477,7 +477,7 @@ export default function ItineraryList({
         }}>
           <strong>Summary:</strong> {sortedItems.length} activity{sortedItems.length !== 1 ? 'ies' : ''}
           {userLocation && (
-            <span> • Total estimated cost: ${sortedItems.reduce((sum, item) => sum + item.cost, 0).toFixed(2)}</span>
+            <span> • Total estimated cost: {'$'}{sortedItems.reduce((sum, item) => sum + item.cost, 0).toFixed(2)}</span>
           )}
         </div>
       )}
