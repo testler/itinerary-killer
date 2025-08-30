@@ -36,8 +36,9 @@ export const usePerformanceMonitoring = () => {
 
   // Track overall app performance
   useEffect(() => {
+    const advancedMetricsActive = (window as any).__IK_ADV_METRICS_ACTIVE === true;
     // Track Core Web Vitals
-    if ('PerformanceObserver' in window) {
+    if (!advancedMetricsActive && 'PerformanceObserver' in window) {
       const observer = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
           switch (entry.entryType) {
@@ -73,7 +74,9 @@ export const usePerformanceMonitoring = () => {
     const trackTimeToInteractive = () => {
       const tti = performance.now() - startTime.current;
       metrics.current.timeToInteractive = tti;
-      console.log('🚀 Time to Interactive:', tti.toFixed(2), 'ms');
+      if (!advancedMetricsActive) {
+        console.log('🚀 Time to Interactive:', tti.toFixed(2), 'ms');
+      }
       
       // Send to analytics if available
       // Optional: integrate with analytics if present
@@ -95,11 +98,13 @@ export const usePerformanceMonitoring = () => {
       const totalTime = performance.now() - startTime.current;
       metrics.current.totalLoadTime = totalTime;
       
-      console.log('📊 Performance Summary:', {
-        totalLoadTime: `${totalTime.toFixed(2)}ms`,
-        componentLoadTimes: metrics.current.componentLoadTimes,
-        timeToInteractive: `${metrics.current.timeToInteractive.toFixed(2)}ms`
-      });
+      if (!advancedMetricsActive) {
+        console.log('📊 Performance Summary:', {
+          totalLoadTime: `${totalTime.toFixed(2)}ms`,
+          componentLoadTimes: metrics.current.componentLoadTimes,
+          timeToInteractive: `${metrics.current.timeToInteractive.toFixed(2)}ms`
+        });
+      }
     };
   }, []);
 

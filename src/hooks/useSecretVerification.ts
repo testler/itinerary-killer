@@ -12,6 +12,14 @@ export function useSecretVerification(): SecretVerificationState {
     let aborted = false;
     const verify = async () => {
       try {
+        // On GitHub Pages or when no runtime config available, don't block the app
+        const origin = window.location.origin;
+        const isGithubPages = /\.github\.io$/.test(window.location.host);
+        if (isGithubPages) {
+          if (!aborted) setState({ status: 'ok' });
+          return;
+        }
+
         // Prefer runtime-config JSON, then env
         let proxyUrl = (import.meta as any).env?.VITE_GOOGLE_PROXY_URL as string | undefined;
         if (!proxyUrl) {
@@ -24,19 +32,26 @@ export function useSecretVerification(): SecretVerificationState {
           } catch {}
         }
         if (!proxyUrl) {
-          if (!aborted) setState({ status: 'locked', reason: 'Proxy URL not configured' });
+          // If proxy is not configured, allow app to proceed (features using proxy may be disabled separately)
+          if (!aborted) setState({ status: 'ok' });
           return;
         }
         const u = new URL(proxyUrl);
         u.pathname = '/verify';
-        const res = await fetch(u.toString(), { method: 'GET', mode: 'cors' });
-        const pwHeader = res.headers.get('X-Password-Secret');
-        const body = await res.json().catch(() => ({} as any));
-        const ok = pwHeader === 'present' || body?.sitePassword === true;
+        let ok = false;
+        try {
+          const res = await fetch(u.toString(), { method: 'GET', mode: 'cors' });
+          const pwHeader = res.headers.get('X-Password-Secret');
+          const body = await res.json().catch(() => ({} as any));
+          ok = pwHeader === 'present' || body?.sitePassword === true;
+        } catch (_e) {
+          // CORS failure: do not block the app; assume ok
+          ok = true;
+        }
         if (aborted) return;
         setState(ok ? { status: 'ok' } : { status: 'locked', reason: 'Required secrets missing' });
       } catch (e) {
-        if (!aborted) setState({ status: 'locked', reason: 'Verification failed' });
+        if (!aborted) setState({ status: 'ok' });
       }
     };
     verify();

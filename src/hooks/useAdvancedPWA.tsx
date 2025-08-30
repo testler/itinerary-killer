@@ -411,7 +411,7 @@ export const useAdvancedPWA = () => {
     const updateCheckInterval = setInterval(checkForUpdates, 1000 * 60 * 60); // Every hour
     
     // Check installation status periodically
-    const installCheckInterval = setInterval(checkInstallationStatus, 1000 * 30); // Every 30 seconds
+    const installCheckInterval = setInterval(checkInstallationStatus, 1000 * 60 * 5); // Every 5 minutes to reduce churn
     
     return () => {
       // Clean up event listeners

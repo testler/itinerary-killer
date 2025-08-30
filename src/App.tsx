@@ -82,6 +82,8 @@ function App() {
     trackUserInteraction,
     generateReport
   } = useAdvancedPerformanceMonitoring();
+  // Mark advanced metrics active to avoid duplicate simple metrics logs
+  (window as Window & { __IK_ADV_METRICS_ACTIVE?: boolean }).__IK_ADV_METRICS_ACTIVE = true;
   
   // Phase 2: Service Worker & Advanced Caching
   const { 

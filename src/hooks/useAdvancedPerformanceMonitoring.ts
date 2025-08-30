@@ -75,6 +75,11 @@ export const useAdvancedPerformanceMonitoring = () => {
   // Reserved for future use
   // const activityTimer = useRef<number | null>(null);
   const sessionTimer = useRef<number | null>(null);
+  const monitorIntervalRef = useRef<number | null>(null);
+  const startedRef = useRef<boolean>(false);
+  const clickHandlerRef = useRef<((e: MouseEvent) => void) | null>(null);
+  const touchHandlerRef = useRef<((e: TouchEvent) => void) | null>(null);
+  const scrollHandlerRef = useRef<(() => void) | null>(null);
 
   // Performance thresholds
   const thresholds: PerformanceThresholds = {
@@ -219,11 +224,11 @@ export const useAdvancedPerformanceMonitoring = () => {
 
   // Start performance monitoring
   const startMonitoring = useCallback(() => {
-    if (isMonitoring) return;
-    
+    if (startedRef.current) return;
     console.log('🚀 Starting advanced performance monitoring...');
     setIsMonitoring(true);
-    
+    startedRef.current = true;
+
     // Initialize metrics
     const initialMetrics: PerformanceMetrics = {
       lcp: 0,
@@ -291,74 +296,83 @@ export const useAdvancedPerformanceMonitoring = () => {
     const trackActivity = () => {
       setUserBehavior(prev => ({ ...prev, lastActivity: Date.now() }));
     };
-    
-    // Track various user activities
-    document.addEventListener('click', () => {
+
+    clickHandlerRef.current = () => {
       trackActivity();
       trackUserInteraction('click');
       setUserBehavior(prev => ({ ...prev, clickEvents: prev.clickEvents + 1 }));
-    });
-    
-    document.addEventListener('touchstart', () => {
+    };
+    document.addEventListener('click', clickHandlerRef.current);
+
+    touchHandlerRef.current = () => {
       trackActivity();
       trackUserInteraction('touch');
       setUserBehavior(prev => ({ ...prev, touchEvents: prev.touchEvents + 1 }));
-    });
-    
-    document.addEventListener('scroll', () => {
+    };
+    document.addEventListener('touchstart', touchHandlerRef.current, { passive: true } as any);
+
+    scrollHandlerRef.current = () => {
       trackActivity();
       setUserBehavior(prev => ({ ...prev, scrollEvents: prev.scrollEvents + 1 }));
-      
-      // Track scroll depth
       // Reserved: scroll depth tracking disabled to simplify types
-      setUserBehavior(prev => ({ ...prev }));
-    });
+    };
+    document.addEventListener('scroll', scrollHandlerRef.current, { passive: true } as any);
     
     // Set up periodic monitoring
-    const monitorInterval = setInterval(() => {
-      if (metrics) {
-        const memoryInfo = getMemoryInfo();
-        const networkInfo = getNetworkInfo();
-        
-        setMetrics(prev => prev ? {
-          ...prev,
-          memoryUsage: memoryInfo.usage,
-          memoryLimit: memoryInfo.limit,
-          networkRequests: networkInfo.requests,
-          totalTransferSize: networkInfo.transferSize,
-          averageResponseTime: networkInfo.avgResponseTime
-        } : null);
-      }
-    }, 5000); // Every 5 seconds
+    monitorIntervalRef.current = setInterval(() => {
+      const memoryInfo = getMemoryInfo();
+      const networkInfo = getNetworkInfo();
+      setMetrics(prev => prev ? {
+        ...prev,
+        memoryUsage: memoryInfo.usage,
+        memoryLimit: memoryInfo.limit,
+        networkRequests: networkInfo.requests,
+        totalTransferSize: networkInfo.transferSize,
+        averageResponseTime: networkInfo.avgResponseTime
+      } : prev);
+    }, 5000) as unknown as number; // Every 5 seconds
     
     // Set up session timer
     sessionTimer.current = setInterval(() => {
       setUserBehavior(prev => ({ ...prev, timeOnPage: Date.now() - prev.sessionStart }));
     }, 1000); // Every second
-    
-    return () => {
-      clearInterval(monitorInterval);
-      if (sessionTimer.current) clearInterval(sessionTimer.current);
-    };
-  }, [isMonitoring, metrics, getMemoryInfo, getNetworkInfo, trackUserInteraction]);
+  }, [getMemoryInfo, getNetworkInfo, trackUserInteraction]);
 
   // Stop performance monitoring
   const stopMonitoring = useCallback(() => {
-    if (!isMonitoring) return;
-    
+    if (!startedRef.current) return;
     console.log('🛑 Stopping performance monitoring...');
     setIsMonitoring(false);
-    
+    startedRef.current = false;
+
     if (observerRef.current) {
       observerRef.current.disconnect();
       observerRef.current = null;
     }
-    
+
+    if (monitorIntervalRef.current) {
+      clearInterval(monitorIntervalRef.current);
+      monitorIntervalRef.current = null;
+    }
+
     if (sessionTimer.current) {
       clearInterval(sessionTimer.current);
       sessionTimer.current = null;
     }
-  }, [isMonitoring]);
+
+    if (clickHandlerRef.current) {
+      document.removeEventListener('click', clickHandlerRef.current);
+      clickHandlerRef.current = null;
+    }
+    if (touchHandlerRef.current) {
+      document.removeEventListener('touchstart', touchHandlerRef.current as any);
+      touchHandlerRef.current = null;
+    }
+    if (scrollHandlerRef.current) {
+      document.removeEventListener('scroll', scrollHandlerRef.current as any);
+      scrollHandlerRef.current = null;
+    }
+  }, []);
 
   // Generate performance report
   const generateReport = useCallback((): string => {
@@ -426,16 +440,11 @@ ${score >= 90 ? '🟢 Excellent' : score >= 70 ? '🟡 Good' : score >= 50 ? '�
 
   // Initialize monitoring on mount
   useEffect(() => {
-    // Start once, guard against React StrictMode double-invoke in dev
-    let started = false;
-    if (!started) {
-      startMonitoring();
-      started = true;
-    }
+    startMonitoring();
     return () => {
       stopMonitoring();
     };
-  }, [startMonitoring, stopMonitoring]);
+  }, []);
 
   // Calculate performance score when metrics change
   useEffect(() => {
