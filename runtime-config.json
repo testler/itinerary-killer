@@ -1,5 +1,5 @@
 {
-  "VITE_GOOGLE_PROXY_URL": "google-proxy.joshgarst.workers.dev"
+  "VITE_GOOGLE_PROXY_URL": "https://google-proxy.joshgarst.workers.dev"
 }
 
 
