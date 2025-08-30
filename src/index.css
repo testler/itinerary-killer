@@ -1097,12 +1097,9 @@ body {
 /* Mobile Itinerary List Styles */
 .mobile-itinerary-list {
   padding: 0;
-  background: #f8fafc;
-  height: 100%;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
-  overscroll-behavior: contain;
+  background: transparent;
+  height: auto;
+  overflow: visible;
 }
 
 /* Mobile Search Header */
@@ -1318,7 +1315,6 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  padding-bottom: 6rem; /* Add bottom padding to account for sticky summary */
 }
 
 /* iPad Grid Layout (768px - 1023px) */
@@ -1682,15 +1678,11 @@ body {
 
 /* Mobile Summary */
 .mobile-summary {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
   background: white;
   border-top: 1px solid #e5e7eb;
   padding: 1rem;
-  z-index: 100;
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+  margin-top: 1rem;
+  border-radius: 8px;
 }
 
 .summary-content {
