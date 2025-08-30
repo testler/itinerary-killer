@@ -325,43 +325,72 @@ function App() {
     let startX = 0;
     let startY = 0;
     let isSwiping = false;
+    let touchStartTime = 0;
 
     const handleTouchStart = (e: TouchEvent) => {
+      // Don't handle touches on interactive elements
+      const target = e.target as Element;
+      if (target.closest('button') || target.closest('input') || target.closest('select') || target.closest('textarea')) {
+        return;
+      }
+      
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
+      touchStartTime = Date.now();
       isSwiping = false;
+      
+      // Add visual feedback for swipe area
+      const swipeArea = document.querySelector('.swipe-area');
+      if (swipeArea && startX < 60) {
+        swipeArea.classList.add('active');
+      }
     };
 
     const handleTouchMove = (e: TouchEvent) => {
-      if (!isSwiping) {
+      if (!isSwiping && touchStartTime > 0) {
         const deltaX = Math.abs(e.touches[0].clientX - startX);
         const deltaY = Math.abs(e.touches[0].clientY - startY);
         
         // Start swiping if horizontal movement is significant and vertical is minimal
-        if (deltaX > 20 && deltaY < 50) {
+        if (deltaX > 15 && deltaY < 40) {
           isSwiping = true;
+          // Prevent default to avoid scrolling during swipe
+          e.preventDefault();
         }
       }
     };
 
     const handleTouchEnd = (e: TouchEvent) => {
-      if (isSwiping) {
+      if (isSwiping && touchStartTime > 0) {
         const deltaX = e.changedTouches[0].clientX - startX;
         const deltaY = Math.abs(e.changedTouches[0].clientY - startY);
+        const touchDuration = Date.now() - touchStartTime;
         
-        // Swipe right from left edge to open sidebar
-        if (deltaX > 50 && deltaY < 50 && startX < 50) {
+        // Swipe right from left edge to open sidebar (more sensitive)
+        if (deltaX > 40 && deltaY < 40 && startX < 60 && touchDuration < 500) {
           setSidebarOpen(true);
         }
         // Swipe left to close sidebar
-        else if (deltaX < -50 && deltaY < 50 && sidebarOpen) {
+        else if (deltaX < -40 && deltaY < 40 && sidebarOpen && touchDuration < 500) {
           setSidebarOpen(false);
         }
       }
+      
+      // Reset state
+      startX = 0;
+      startY = 0;
+      isSwiping = false;
+      touchStartTime = 0;
+      
+      // Remove visual feedback
+      const swipeArea = document.querySelector('.swipe-area');
+      if (swipeArea) {
+        swipeArea.classList.remove('active');
+      }
     };
 
-    document.addEventListener('touchstart', handleTouchStart, { passive: true });
-    document.addEventListener('touchmove', handleTouchMove, { passive: true });
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
     document.addEventListener('touchend', handleTouchEnd, { passive: true });
 
     return () => {
@@ -515,7 +544,7 @@ function App() {
                 onClick={() => setSidebarOpen(false)}
                 style={{
                   background: 'rgba(255, 255, 255, 0.2)',
-                  border: 'none',
+                  border: '1px solid rgba(255, 255, 255, 0.3)',
                   color: 'white',
                   padding: '0.5rem',
                   borderRadius: '8px',
@@ -526,7 +555,17 @@ function App() {
                   minHeight: '44px',
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'center'
+                  justifyContent: 'center',
+                  transition: 'all 0.2s ease',
+                  WebkitTapHighlightColor: 'transparent'
+                }}
+                onTouchStart={(e) => {
+                  e.currentTarget.style.transform = 'scale(0.95)';
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                }}
+                onTouchEnd={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
                 }}
                 aria-label="Close sidebar"
               >
@@ -535,8 +574,68 @@ function App() {
             )}
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-            <button onClick={() => setShowAddModal(true)} aria-label="Add new activity">Add</button>
-            <button onClick={() => setShowImportModal(true)} aria-label="Import activities JSON">Import</button>
+            <button 
+              onClick={() => setShowAddModal(true)} 
+              aria-label="Add new activity"
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                color: 'white',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: '600',
+                minWidth: '60px',
+                minHeight: '44px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease',
+                WebkitTapHighlightColor: 'transparent'
+              }}
+              onTouchStart={(e) => {
+                e.currentTarget.style.transform = 'scale(0.95)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+              }}
+              onTouchEnd={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+              }}
+            >
+              Add
+            </button>
+            <button 
+              onClick={() => setShowImportModal(true)} 
+              aria-label="Import activities JSON"
+              style={{
+                background: 'rgba(255, 255, 255, 0.2)',
+                border: '1px solid rgba(255, 255, 255, 0.3)',
+                color: 'white',
+                padding: '0.75rem 1rem',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '0.875rem',
+                fontWeight: '600',
+                minWidth: '80px',
+                minHeight: '44px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'all 0.2s ease',
+                WebkitTapHighlightColor: 'transparent'
+              }}
+              onTouchStart={(e) => {
+                e.currentTarget.style.transform = 'scale(0.95)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+              }}
+              onTouchEnd={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+              }}
+            >
+              Import
+            </button>
           </div>
           
           {/* Location status */}
@@ -808,6 +907,52 @@ function App() {
               <strong>💡 Quick Fix:</strong> This bypasses GPS and works instantly!
             </div>
           </div>
+        )}
+
+        {/* Mobile sidebar toggle button */}
+        {window.innerWidth <= 768 && (
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open itinerary sidebar"
+            style={{
+              position: 'absolute',
+              top: 'calc(1rem + env(safe-area-inset-top))',
+              left: '1rem',
+              zIndex: 1000,
+              background: 'white',
+              border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              padding: '1rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '56px',
+              minHeight: '56px',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)'
+            }}
+          >
+            <Menu size={24} />
+          </button>
+        )}
+
+        {/* Swipe area indicator for mobile */}
+        {window.innerWidth <= 768 && (
+          <div 
+            className="swipe-area"
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: '60px',
+              height: '100vh',
+              zIndex: 1,
+              pointerEvents: 'none'
+            }}
+          />
         )}
 
         {/* Mobile swipe hint */}
