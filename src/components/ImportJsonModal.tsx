@@ -77,6 +77,45 @@ export default function ImportJsonModal({ onClose, onImport }: ImportJsonModalPr
     setText(content);
   };
 
+  const downloadTemplate = () => {
+    const template = [
+      {
+        "title": "Example Activity",
+        "description": "A sample activity description",
+        "address": "123 Example Street, City, State",
+        "category": "Entertainment",
+        "priority": "medium",
+        "estimatedDuration": 120,
+        "cost": 25.50,
+        "notes": "Optional notes about this activity",
+        "isOpen": true,
+        "location": {
+          "lat": 40.7128,
+          "lng": -74.0060
+        },
+        "openingHours": {
+          "monday": { "open": "09:00", "close": "17:00" },
+          "tuesday": { "open": "09:00", "close": "17:00" },
+          "wednesday": { "open": "09:00", "close": "17:00" },
+          "thursday": { "open": "09:00", "close": "17:00" },
+          "friday": { "open": "09:00", "close": "17:00" },
+          "saturday": { "open": "10:00", "close": "18:00" },
+          "sunday": null
+        }
+      }
+    ];
+
+    const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'itinerary-template.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   const handleParse = () => {
     setError(null);
     try {
@@ -124,14 +163,28 @@ export default function ImportJsonModal({ onClose, onImport }: ImportJsonModalPr
         </div>
         <div className="modal-body">
           <div style={{ marginBottom: 12 }}>
-            <input
-              type="file"
-              accept="application/json,.json"
-              onChange={(e) => {
-                const f = e.target.files && e.target.files[0];
-                if (f) void handleFile(f);
-              }}
-            />
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+              <input
+                type="file"
+                accept="application/json,.json"
+                onChange={(e) => {
+                  const f = e.target.files && e.target.files[0];
+                  if (f) void handleFile(f);
+                }}
+              />
+              <button 
+                onClick={downloadTemplate}
+                style={{ 
+                  padding: '6px 12px', 
+                  backgroundColor: '#f0f0f0', 
+                  border: '1px solid #ccc', 
+                  borderRadius: '4px',
+                  cursor: 'pointer'
+                }}
+              >
+                📥 Download Template
+              </button>
+            </div>
             {fileName && <span style={{ marginLeft: 8 }}>{fileName}</span>}
           </div>
           <textarea
