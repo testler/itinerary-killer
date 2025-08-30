@@ -10,8 +10,7 @@ export default function PasswordGate({ expectedPassword, onAuthenticated }: Pass
   const [error, setError] = useState<string | null>(null);
   const hasPassword = useMemo(() => typeof expectedPassword === 'string' && expectedPassword.length > 0, [expectedPassword]);
 
-  // Remove the automatic authentication when no password is configured
-  // Now the site will be locked by default unless a password is explicitly set
+  // If no password is configured, DO NOT authenticate. Keep the site locked.
 
   const submit = () => {
     setError(null);
@@ -26,50 +25,7 @@ export default function PasswordGate({ expectedPassword, onAuthenticated }: Pass
     setError('Incorrect password');
   };
 
-  // If no password is configured, show unavailable message
-  if (!hasPassword) {
-    return (
-      <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 16 }}>
-        <div className="modal" style={{ maxWidth: 420, width: '100%', background: 'white', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.15)', padding: 20 }}>
-          <div className="modal-header" style={{ marginBottom: 12 }}>
-            <h2 style={{ margin: 0, color: '#dc2626' }}>🚫 Site Unavailable</h2>
-            <p style={{ margin: '8px 0 0 0', color: '#666' }}>This site is currently locked and unavailable for access.</p>
-          </div>
-          <div className="modal-body">
-            <div style={{ 
-              padding: '16px', 
-              background: '#fef2f2', 
-              border: '1px solid #fecaca', 
-              borderRadius: '8px',
-              color: '#991b1b'
-            }}>
-              <p style={{ margin: '0 0 8px 0' }}>
-                <strong>Access Denied:</strong> The site administrator has not configured access credentials.
-              </p>
-              <p style={{ margin: 0, fontSize: '14px' }}>
-                Please contact the site administrator to enable access or check the environment configuration.
-              </p>
-            </div>
-          </div>
-          <div className="modal-footer" style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
-            <button 
-              onClick={() => window.location.reload()} 
-              style={{ 
-                background: '#3b82f6', 
-                color: 'white', 
-                border: 'none', 
-                padding: '8px 16px', 
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              Refresh Page
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  // If no password, the component will immediately authenticate above.
 
   return (
     <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 16 }}>

@@ -33,9 +33,15 @@ export const useServiceWorker = () => {
 
     try {
       console.log('🚀 Registering Service Worker...');
-      
-      const reg = await navigator.serviceWorker.register('/sw.js', {
-        scope: '/',
+      // Respect Vite base URL so registration works on sub-paths (e.g. GitHub Pages)
+      const BASE_URL: string = ((import.meta as any).env?.BASE_URL || '/') as string;
+      const joinUrl = (base: string, path: string) => `${base.replace(/\/+$/, '/')}${path.replace(/^\/+/, '')}`;
+
+      const swUrl = joinUrl(BASE_URL, 'sw.js');
+      const scopeUrl = BASE_URL; // scope must equal the base path
+
+      const reg = await navigator.serviceWorker.register(swUrl, {
+        scope: scopeUrl,
         updateViaCache: 'none'
       });
 

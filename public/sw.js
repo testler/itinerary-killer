@@ -1,3 +1,5 @@
+/* eslint-env serviceworker, browser */
+/* global self, caches, fetch, Response, URL, console */
 // Service Worker for Itinerary Killer App
 // Provides offline support, caching, and performance optimization
 
@@ -6,20 +8,38 @@ const STATIC_CACHE = 'static-v2';
 const DYNAMIC_CACHE = 'dynamic-v2';
 const MAP_CACHE = 'map-tiles-v1';
 
+// Derive base path from registration scope (works on subfolders like /itinerary-killer/)
+// If scope is https://host/path/, basePath becomes /path/
+const SCOPE_URL = (self.registration && self.registration.scope) || '/';
+const BASE_PATH = (() => {
+  try {
+    const url = new URL(SCOPE_URL);
+    return url.pathname.endsWith('/') ? url.pathname : url.pathname + '/';
+  } catch {
+    return '/';
+  }
+})();
+
+function withBase(path) {
+  const a = BASE_PATH.replace(/\/+$/, '/');
+  const b = String(path).replace(/^\/+/, '');
+  return a + b;
+}
+
 // Critical resources to cache immediately
 const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.webmanifest',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
+  withBase('/'),
+  withBase('index.html'),
+  withBase('manifest.webmanifest'),
+  withBase('icons/icon-192.png'),
+  withBase('icons/icon-512.png')
 ];
 
 // Core app assets
 const CORE_ASSETS = [
-  '/src/main.tsx',
-  '/src/App.tsx',
-  '/src/index.css'
+  withBase('src/main.tsx'),
+  withBase('src/App.tsx'),
+  withBase('src/index.css')
 ];
 
 // Map tile patterns to cache
@@ -249,7 +269,7 @@ async function handleNavigationRequest(request) {
     
     // Return cached index.html for offline navigation
     const cache = await caches.open(STATIC_CACHE);
-    const offlineResponse = await cache.match('/index.html');
+    const offlineResponse = await cache.match(withBase('index.html'));
     
     if (offlineResponse) {
       return offlineResponse;
@@ -394,7 +414,7 @@ self.addEventListener('notificationclick', (event) => {
             return clients[0].focus();
           } else {
             // Open new window
-            return self.clients.openWindow('/');
+            return self.clients.openWindow(BASE_PATH);
           }
         })
     );
