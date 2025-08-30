@@ -968,6 +968,178 @@ body {
   50% { opacity: 0.5; }
 }
 
+/* Sidebar Action Buttons - Fixed Touch Responsiveness */
+.sidebar-action-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  position: relative;
+  z-index: 100;
+}
+
+.sidebar-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.875rem;
+  font-weight: 600;
+  min-width: 60px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  position: relative;
+  z-index: 101;
+  font-family: inherit;
+}
+
+.sidebar-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-btn:active {
+  background: rgba(255, 255, 255, 0.4);
+  transform: translateY(0);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.sidebar-btn.add-btn {
+  min-width: 60px;
+}
+
+.sidebar-btn.import-btn {
+  min-width: 80px;
+}
+
+
+
+/* Sidebar Close Button */
+.sidebar-close-btn {
+  /* Prevent any CSS inheritance issues */
+  all: unset;
+  /* Re-apply essential styles */
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+  padding: 0.5rem !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  font-size: 1.5rem !important;
+  line-height: 1 !important;
+  min-width: 44px !important;
+  min-height: 44px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  transition: all 0.2s ease !important;
+  -webkit-tap-highlight-color: transparent !important;
+  touch-action: manipulation !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  position: relative !important;
+  z-index: 1001 !important;
+  font-family: inherit !important;
+  pointer-events: auto !important;
+}
+
+.sidebar-close-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.sidebar-close-btn:active {
+  background: rgba(255, 255, 255, 0.4);
+  transform: scale(0.95);
+}
+
+/* Mobile Touch Enhancements */
+@media (max-width: 768px) {
+  .sidebar-btn,
+  .sidebar-close-btn {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+  }
+  
+  .sidebar-btn:active,
+  .sidebar-close-btn:active {
+    transform: scale(0.95);
+    transition: transform 0.1s ease;
+  }
+  
+  /* Ensure buttons are above other elements */
+  .sidebar-action-buttons {
+    z-index: 1000;
+    pointer-events: auto !important;
+  }
+  
+  .sidebar-btn,
+  .sidebar-close-btn {
+    z-index: 1001;
+    pointer-events: auto !important;
+  }
+}
+
+/* Force button interactivity */
+.sidebar-btn,
+.sidebar-close-btn {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  position: relative;
+  z-index: 1001;
+  /* Ensure buttons are clickable */
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  /* Prevent any CSS inheritance issues */
+  all: unset;
+  /* Re-apply essential styles */
+  background: rgba(255, 255, 255, 0.2) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  color: white !important;
+  padding: 0.75rem 1rem !important;
+  border-radius: 8px !important;
+  cursor: pointer !important;
+  font-size: 0.875rem !important;
+  font-weight: 600 !important;
+  min-width: 60px !important;
+  min-height: 44px !important;
+  transition: all 0.2s ease !important;
+  -webkit-tap-highlight-color: transparent !important;
+  touch-action: manipulation !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+  font-family: inherit !important;
+}
+
+/* Debug styles - make buttons more visible */
+.sidebar-btn::before,
+.sidebar-close-btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 0, 0, 0.1);
+  pointer-events: none;
+  z-index: -1;
+}
+
 .form-group {
   margin-bottom: 1rem;
 }

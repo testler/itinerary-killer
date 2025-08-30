@@ -331,9 +331,16 @@ function App() {
       // Don't handle touches on interactive elements
       const target = e.target as Element;
       if (target.closest('button') || target.closest('input') || target.closest('select') || target.closest('textarea')) {
+        // Reset swipe state when touching interactive elements
+        startX = 0;
+        startY = 0;
+        isSwiping = false;
+        touchStartTime = 0;
+        // Allow the button's own touch handlers to work
         return;
       }
       
+      // Only handle touches on non-interactive areas
       startX = e.touches[0].clientX;
       startY = e.touches[0].clientY;
       touchStartTime = Date.now();
@@ -399,6 +406,47 @@ function App() {
       document.removeEventListener('touchend', handleTouchEnd);
     };
   }, [sidebarOpen]);
+
+  // Debug button functionality
+  useEffect(() => {
+    console.log('App component mounted, buttons should be functional');
+    console.log('showAddModal state:', showAddModal);
+    console.log('showImportModal state:', showImportModal);
+    
+    // Test button event listeners
+    setTimeout(() => {
+      const addBtn = document.querySelector('.add-btn');
+      const importBtn = document.querySelector('.import-btn');
+      const closeBtn = document.querySelector('.sidebar-close-btn');
+      const testBtn = document.querySelector('.test-btn');
+      
+      console.log('Button elements found:', {
+        addBtn: !!addBtn,
+        importBtn: !!importBtn,
+        closeBtn: !!closeBtn,
+        testBtn: !!testBtn
+      });
+      
+      if (addBtn) {
+        console.log('Add button styles:', window.getComputedStyle(addBtn));
+        console.log('Add button pointer-events:', window.getComputedStyle(addBtn).pointerEvents);
+        
+        // Add a test click listener
+        addBtn.addEventListener('click', () => {
+          console.log('Add button clicked via addEventListener!');
+        });
+        
+        // Test touch events
+        addBtn.addEventListener('touchstart', (e) => {
+          console.log('Add button touchstart via addEventListener!');
+        });
+        
+        addBtn.addEventListener('touchend', (e) => {
+          console.log('Add button touchend via addEventListener!');
+        });
+      }
+    }, 1000);
+  }, [showAddModal, showImportModal]);
 
   // Close sidebar when clicking outside on mobile
   useEffect(() => {
@@ -541,29 +589,19 @@ function App() {
             </div>
             {window.innerWidth <= 768 && (
               <button
-                onClick={() => setSidebarOpen(false)}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.2)',
-                  border: '1px solid rgba(255, 255, 255, 0.3)',
-                  color: 'white',
-                  padding: '0.5rem',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '1.5rem',
-                  lineHeight: 1,
-                  minWidth: '44px',
-                  minHeight: '44px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  transition: 'all 0.2s ease',
-                  WebkitTapHighlightColor: 'transparent'
+                className="sidebar-close-btn"
+                onClick={() => {
+                  console.log('Close button clicked!');
+                  setSidebarOpen(false);
                 }}
                 onTouchStart={(e) => {
+                  console.log('Close button touch start');
+                  e.preventDefault();
                   e.currentTarget.style.transform = 'scale(0.95)';
                   e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
                 }}
                 onTouchEnd={(e) => {
+                  console.log('Close button touch end');
                   e.currentTarget.style.transform = 'scale(1)';
                   e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
                 }}
@@ -573,69 +611,50 @@ function App() {
               </button>
             )}
           </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+          <div className="sidebar-action-buttons">
             <button 
-              onClick={() => setShowAddModal(true)} 
-              aria-label="Add new activity"
-              style={{
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                color: 'white',
-                padding: '0.75rem 1rem',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: '600',
-                minWidth: '60px',
-                minHeight: '44px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s ease',
-                WebkitTapHighlightColor: 'transparent'
-              }}
+              className="sidebar-btn add-btn"
+              onClick={() => {
+                console.log('Add button clicked!');
+                setShowAddModal(true);
+              }} 
               onTouchStart={(e) => {
+                console.log('Add button touch start');
+                e.preventDefault();
                 e.currentTarget.style.transform = 'scale(0.95)';
                 e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
               }}
               onTouchEnd={(e) => {
+                console.log('Add button touch end');
                 e.currentTarget.style.transform = 'scale(1)';
                 e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
               }}
+              aria-label="Add new activity"
             >
               Add
             </button>
             <button 
-              onClick={() => setShowImportModal(true)} 
-              aria-label="Import activities JSON"
-              style={{
-                background: 'rgba(255, 255, 255, 0.2)',
-                border: '1px solid rgba(255, 255, 255, 0.3)',
-                color: 'white',
-                padding: '0.75rem 1rem',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '0.875rem',
-                fontWeight: '600',
-                minWidth: '80px',
-                minHeight: '44px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transition: 'all 0.2s ease',
-                WebkitTapHighlightColor: 'transparent'
-              }}
+              className="sidebar-btn import-btn"
+              onClick={() => {
+                console.log('Import button clicked!');
+                setShowImportModal(true);
+              }} 
               onTouchStart={(e) => {
+                console.log('Import button touch start');
+                e.preventDefault();
                 e.currentTarget.style.transform = 'scale(0.95)';
                 e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
               }}
               onTouchEnd={(e) => {
+                console.log('Import button touch end');
                 e.currentTarget.style.transform = 'scale(1)';
                 e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
               }}
+              aria-label="Import activities JSON"
             >
               Import
             </button>
+
           </div>
           
           {/* Location status */}
@@ -1049,6 +1068,8 @@ function App() {
           />
         </Suspense>
       )}
+
+
     </div>
   );
 }

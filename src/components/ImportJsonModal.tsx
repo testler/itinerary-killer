@@ -140,19 +140,37 @@ export default function ImportJsonModal({ onClose, onImport }: ImportJsonModalPr
     return result;
   }, [parsed]);
 
-  const handleImport = () => {
+  const handleImport = async () => {
     if (!validItems.length) {
       setError('No valid items to import');
       return;
     }
-    const now = Date.now();
-    const items: ItineraryItem[] = validItems.map((v, i) => ({
-      ...v,
-      id: (now + i).toString(),
-      createdAt: new Date(),
-      completed: false,
-    }));
-    onImport(items);
+    
+    try {
+      const now = Date.now();
+      const items: ItineraryItem[] = validItems.map((v, i) => ({
+        ...v,
+        id: (now + i).toString(),
+        createdAt: new Date(),
+        completed: false,
+      }));
+      
+      console.log(`Importing ${items.length} items:`, items.map(item => ({
+        id: item.id,
+        title: item.title,
+        category: item.category,
+        priority: item.priority,
+        hasLocation: !!item.location,
+        hasNotes: !!item.notes,
+        hasOpeningHours: !!item.openingHours
+      })));
+      
+      await onImport(items);
+      console.log('Import completed successfully');
+    } catch (error) {
+      console.error('Import failed:', error);
+      setError(`Import failed: ${error instanceof Error ? error.message : String(error)}`);
+    }
   };
 
   return (

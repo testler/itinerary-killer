@@ -13,11 +13,11 @@ export interface ItineraryItem {
   priority: 'low' | 'medium' | 'high';
   estimatedDuration: number; // in minutes
   cost: number;
-  notes: string;
+  notes: string; // Note: This field is not stored in the database
   isOpen: boolean; // whether the place is currently open
   openingHours?: {
     [day: string]: { open: string; close: string } | null;
-  };
+  }; // Note: This field is not stored in the database
   createdAt: Date;
   completed: boolean;
 }
