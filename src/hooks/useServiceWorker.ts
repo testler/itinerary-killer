@@ -1,5 +1,10 @@
 import { useEffect, useState, useCallback } from 'react';
 
+// Global registration guard to prevent duplicate registrations across multiple
+// hook consumers (App, caching, network hooks, etc.)
+let globalRegistration: ServiceWorkerRegistration | null = null;
+let registrationInFlight: Promise<ServiceWorkerRegistration | null> | null = null;
+
 interface ServiceWorkerState {
   isSupported: boolean;
   isInstalled: boolean;
@@ -32,6 +37,21 @@ export const useServiceWorker = () => {
     }
 
     try {
+      // If we've already registered (or are registering), reuse that
+      if (globalRegistration) {
+        setRegistration(globalRegistration);
+        setSwState(prev => ({ ...prev, isInstalled: true }));
+        return globalRegistration;
+      }
+      if (registrationInFlight) {
+        const existing = await registrationInFlight;
+        if (existing) {
+          setRegistration(existing);
+          setSwState(prev => ({ ...prev, isInstalled: true }));
+        }
+        return existing;
+      }
+
       console.log('🚀 Registering Service Worker...');
       // Respect Vite base URL so registration works on sub-paths (e.g. GitHub Pages)
       const BASE_URL: string = ((import.meta as any).env?.BASE_URL || '/') as string;
@@ -40,10 +60,13 @@ export const useServiceWorker = () => {
       const swUrl = joinUrl(BASE_URL, 'sw.js');
       const scopeUrl = BASE_URL; // scope must equal the base path
 
-      const reg = await navigator.serviceWorker.register(swUrl, {
+      registrationInFlight = navigator.serviceWorker.register(swUrl, {
         scope: scopeUrl,
         updateViaCache: 'none'
       });
+      const reg = await registrationInFlight;
+      globalRegistration = reg;
+      registrationInFlight = null;
 
       console.log('✅ Service Worker registered successfully:', reg);
       setRegistration(reg);

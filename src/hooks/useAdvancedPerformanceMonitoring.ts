@@ -426,8 +426,12 @@ ${score >= 90 ? '🟢 Excellent' : score >= 70 ? '🟡 Good' : score >= 50 ? '�
 
   // Initialize monitoring on mount
   useEffect(() => {
-    startMonitoring();
-    
+    // Start once, guard against React StrictMode double-invoke in dev
+    let started = false;
+    if (!started) {
+      startMonitoring();
+      started = true;
+    }
     return () => {
       stopMonitoring();
     };

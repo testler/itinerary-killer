@@ -12,7 +12,17 @@ export function useSecretVerification(): SecretVerificationState {
     let aborted = false;
     const verify = async () => {
       try {
-        const proxyUrl = (import.meta as any).env?.VITE_GOOGLE_PROXY_URL as string | undefined;
+        // Prefer runtime-config JSON, then env
+        let proxyUrl = (import.meta as any).env?.VITE_GOOGLE_PROXY_URL as string | undefined;
+        if (!proxyUrl) {
+          try {
+            const rc = await fetch(`${(import.meta as any).env?.BASE_URL || '/'}runtime-config.json`, { cache: 'no-store' });
+            if (rc.ok) {
+              const json = await rc.json();
+              proxyUrl = json?.VITE_GOOGLE_PROXY_URL || proxyUrl;
+            }
+          } catch {}
+        }
         if (!proxyUrl) {
           if (!aborted) setState({ status: 'locked', reason: 'Proxy URL not configured' });
           return;
