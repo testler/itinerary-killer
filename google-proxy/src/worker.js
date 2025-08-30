@@ -43,7 +43,7 @@ function applyCorsHeaders(resp, allowedOrigin) {
 // Tag response with headers indicating whether secrets are present
 function tagSecretHeader(resp, env) {
 	const hasGoogle = Boolean(env && env.GOOGLE_API_KEY);
-	const hasPassword = Boolean(env && env.SITE_PASSWORD);
+	const hasPassword = Boolean(env && (env.SITE_PASSWORD || env.itinerary_password));
 	resp.headers.set('X-Proxy-Secret', hasGoogle ? 'present' : 'missing');
 	resp.headers.set('X-Password-Secret', hasPassword ? 'present' : 'missing');
 	return resp;
@@ -75,7 +75,7 @@ export default {
 		if (url.pathname === '/verify') {
 			const payload = {
 				googleKey: Boolean(env && env.GOOGLE_API_KEY),
-				sitePassword: Boolean(env && env.SITE_PASSWORD)
+				sitePassword: Boolean(env && (env.SITE_PASSWORD || env.itinerary_password))
 			};
 			return applyCorsHeaders(
 				tagSecretHeader(new Response(JSON.stringify(payload), {
