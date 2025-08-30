@@ -41,16 +41,22 @@ export const usePerformanceMonitoring = () => {
       const observer = new PerformanceObserver((list) => {
         for (const entry of list.getEntries()) {
           switch (entry.entryType) {
-            case 'largest-contentful-paint':
-              console.log('🎯 LCP:', entry.startTime.toFixed(2), 'ms');
+            case 'largest-contentful-paint': {
+              const lcp = (entry as any).startTime as number;
+              console.log('🎯 LCP:', lcp.toFixed(2), 'ms');
               break;
-            case 'first-input':
-              const fid = entry.processingStart - entry.startTime;
+            }
+            case 'first-input': {
+              const e = entry as any;
+              const fid = (e.processingStart ?? 0) - (e.startTime ?? 0);
               console.log('⚡ FID:', fid.toFixed(2), 'ms');
               break;
-            case 'layout-shift':
-              console.log('📐 CLS:', entry.value.toFixed(3));
+            }
+            case 'layout-shift': {
+              const cls = (entry as any).value as number;
+              console.log('📐 CLS:', cls?.toFixed?.(3));
               break;
+            }
           }
         }
       });
@@ -61,18 +67,7 @@ export const usePerformanceMonitoring = () => {
     }
 
     // Track custom metrics
-    const trackCustomMetric = (name: string, value: number) => {
-      if ('performance' in window) {
-        performance.mark(`${name}-start`);
-        performance.mark(`${name}-end`);
-        performance.measure(name, `${name}-start`, `${name}-end`);
-        
-        const measure = performance.getEntriesByName(name)[0];
-        if (measure) {
-          console.log(`📈 ${name}:`, measure.duration.toFixed(2), 'ms');
-        }
-      }
-    };
+    // Reserved for future custom metrics
 
     // Track time to interactive
     const trackTimeToInteractive = () => {
@@ -81,12 +76,7 @@ export const usePerformanceMonitoring = () => {
       console.log('🚀 Time to Interactive:', tti.toFixed(2), 'ms');
       
       // Send to analytics if available
-      if (typeof gtag !== 'undefined') {
-        gtag('event', 'timing_complete', {
-          name: 'time_to_interactive',
-          value: Math.round(tti)
-        });
-      }
+      // Optional: integrate with analytics if present
     };
 
     // Wait for app to be interactive

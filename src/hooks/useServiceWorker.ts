@@ -232,9 +232,10 @@ export const useServiceWorker = () => {
         return null;
       }
 
+      const vapidKey = (import.meta as any).env?.VITE_VAPID_PUBLIC_KEY || '';
       const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(process.env.VITE_VAPID_PUBLIC_KEY || '')
+        applicationServerKey: urlBase64ToUint8Array(vapidKey)
       });
 
       console.log('🔔 Push notification subscription created:', subscription);

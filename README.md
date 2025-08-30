@@ -49,6 +49,9 @@ A modern web application for planning and organizing activities in Orlando, Flor
 - `npm run dev` - Start development server
 - `npm run build` - Build for production
 - `npm run preview` - Preview production build
+- `npm run typecheck` - TypeScript typecheck
+- `npm run lint` - ESLint static analysis
+- `npm run format` - Prettier format
 
 ### Project Structure
 
@@ -93,6 +96,8 @@ Create a `.env` file in the root directory:
 REACT_APP_SPACETIME_URL=your_spacetime_db_url
 REACT_APP_SPACETIME_TOKEN=your_spacetime_db_token
 ```
+# CF worker base URL for Google Places proxy
+VITE_GOOGLE_PROXY_BASE=https://your-worker.subdomain.workers.dev
 
 ## 🚀 Deployment
 

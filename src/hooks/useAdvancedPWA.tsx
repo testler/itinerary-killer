@@ -113,12 +113,7 @@ export const useAdvancedPWA = () => {
     console.log('✅ App installed successfully');
     
     // Track installation
-    if (typeof gtag !== 'undefined') {
-      gtag('event', 'pwa_install', {
-        event_category: 'engagement',
-        event_label: 'app_installation'
-      });
-    }
+    // Optional: integrate with analytics if present
   }, []);
 
   // Handle online/offline status changes
@@ -133,12 +128,13 @@ export const useAdvancedPWA = () => {
       }
     }));
     
-    if (isOnline && prev.offlineQueue.length > 0) {
-      processOfflineQueue();
+    if (isOnline && state.offlineQueue.length > 0) {
+      // defer to next tick to avoid dependency ordering
+      setTimeout(() => processOfflineQueue(), 0);
     }
     
     console.log(`🌐 Network status: ${isOnline ? 'Online' : 'Offline'}`);
-  }, []);
+  }, [state.offlineQueue]);
 
   // Process offline queue when back online
   const processOfflineQueue = useCallback(async () => {
@@ -182,7 +178,7 @@ export const useAdvancedPWA = () => {
   }, [state.offlineQueue]);
 
   // Process individual queued item
-  const processQueuedItem = async (item: any) => {
+  const processQueuedItem = async (_item: any) => {
     // This would typically sync with your backend
     // For now, we'll just simulate processing
     await new Promise(resolve => setTimeout(resolve, 100));

@@ -31,16 +31,18 @@ export const useNetworkOptimization = () => {
   
   const requestQueue = useRef<BatchedRequest[]>([]);
   const activeBatches = useRef<Map<string, RequestBatch>>(new Map());
-  const connectionMonitor = useRef<any>(null);
-  const batchTimer = useRef<NodeJS.Timeout | null>(null);
+  // Reserved for future monitoring extensions (unused)
+  // const connectionMonitor = useRef<any>(null);
+  const batchTimer = useRef<number | null>(null);
 
   // Network quality thresholds
-  const NETWORK_THRESHOLDS = {
-    excellent: { downlink: 10, rtt: 50 },
-    good: { downlink: 5, rtt: 100 },
-    fair: { downlink: 2, rtt: 200 },
-    poor: { downlink: 0.5, rtt: 500 }
-  };
+  // Reserved thresholds (not currently used)
+  // const NETWORK_THRESHOLDS = {
+  //   excellent: { downlink: 10, rtt: 50 },
+  //   good: { downlink: 5, rtt: 100 },
+  //   fair: { downlink: 2, rtt: 200 },
+  //   poor: { downlink: 0.5, rtt: 500 }
+  // };
 
   // Get current network quality
   const getNetworkQuality = useCallback((): NetworkQuality | null => {

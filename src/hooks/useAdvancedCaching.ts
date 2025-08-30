@@ -120,12 +120,13 @@ export const useAdvancedCaching = () => {
       const currentViewport = getCurrentMapViewport();
       if (currentViewport) {
         const tileUrls = generateTileUrls(currentViewport);
-        predictions.push(...tileUrls.map(url => ({
+        const imagePredictions: PreloadItem[] = tileUrls.map((url) => ({
           url,
           type: 'image',
           priority: 0.9,
           estimatedSize: 20
-        })));
+        }));
+        predictions.push(...imagePredictions);
       }
     }
 
@@ -234,7 +235,7 @@ export const useAdvancedCaching = () => {
   // Intelligent map tile caching
   const cacheMapTilesIntelligently = useCallback(async (center: [number, number], zoom: number) => {
     const connection = getConnectionInfo();
-    const strategy = getOptimalCacheStrategy('mapTiles');
+    // Strategy available if needed; currently not used
     
     // Determine caching radius based on connection quality
     let radius = 1; // Default: cache 1 tile radius
@@ -282,7 +283,7 @@ export const useAdvancedCaching = () => {
   }, []);
 
   // Generate tile URLs (placeholder)
-  const generateTileUrls = useCallback((viewport: any) => {
+  const generateTileUrls = useCallback((_viewport: any) => {
     // Implementation depends on your map library
     return [];
   }, []);
@@ -291,7 +292,7 @@ export const useAdvancedCaching = () => {
   const manageCache = useCallback(async () => {
     try {
       const cacheInfo = await getCacheInfo();
-      const connection = getConnectionInfo();
+      // const connection = getConnectionInfo();
       
       // Implement cache eviction based on strategies
       for (const [cacheName, info] of Object.entries(cacheInfo)) {

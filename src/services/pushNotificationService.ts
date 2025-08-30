@@ -1,4 +1,4 @@
-import { useServiceWorker } from '../hooks/useServiceWorker';
+// Service worker is accessed via navigator; no React hook needed here
 
 interface NotificationPayload {
   title: string;
@@ -20,13 +20,7 @@ interface NotificationAction {
   icon?: string;
 }
 
-interface NotificationSubscription {
-  endpoint: string;
-  keys: {
-    p256dh: string;
-    auth: string;
-  };
-}
+// Removed unused NotificationSubscription interface
 
 class PushNotificationService {
   private registration: ServiceWorkerRegistration | null = null;
@@ -46,7 +40,7 @@ class PushNotificationService {
     }
 
     try {
-      this.registration = await navigator.serviceWorker.getRegistration();
+      this.registration = (await navigator.serviceWorker.getRegistration()) || null;
       if (this.registration) {
         this.isSubscribed = !!(await this.registration.pushManager.getSubscription());
         console.log('✅ Push notification service initialized');
@@ -95,7 +89,7 @@ class PushNotificationService {
       }
 
       // Get VAPID public key from environment
-      const vapidPublicKey = process.env.VITE_VAPID_PUBLIC_KEY;
+      const vapidPublicKey = (import.meta as any).env?.VITE_VAPID_PUBLIC_KEY as string | undefined;
       if (!vapidPublicKey) {
         console.log('⚠️ VAPID public key not configured');
         return null;
@@ -103,7 +97,7 @@ class PushNotificationService {
 
       const subscription = await this.registration.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(vapidPublicKey)
+        applicationServerKey: this.urlBase64ToUint8Array(vapidPublicKey) as unknown as ArrayBuffer
       });
 
       this.subscription = subscription;
@@ -160,13 +154,10 @@ class PushNotificationService {
         body: payload.body,
         icon: payload.icon || '/icons/icon-192.png',
         badge: payload.badge || '/icons/icon-192.png',
-        image: payload.image,
         data: payload.data,
-        actions: payload.actions,
         requireInteraction: payload.requireInteraction || false,
         silent: payload.silent || false,
-        tag: payload.tag,
-        renotify: payload.renotify || false
+        tag: payload.tag
       });
 
       // Handle notification events
@@ -328,7 +319,10 @@ class PushNotificationService {
   }
 
   // Convert VAPID key
-  private urlBase64ToUint8Array(base64String: string): Uint8Array {
+  private urlBase64ToUint8Array(base64String: string | undefined): Uint8Array {
+    if (!base64String) {
+      return new Uint8Array(0);
+    }
     const padding = '='.repeat((4 - base64String.length % 4) % 4);
     const base64 = (base64String + padding)
       .replace(/-/g, '+')

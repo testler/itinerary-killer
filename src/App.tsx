@@ -13,7 +13,7 @@ import { useServiceWorker } from './hooks/useServiceWorker';
 import { useAdvancedCaching } from './hooks/useAdvancedCaching';
 import { useNetworkOptimization } from './hooks/useNetworkOptimization';
 import { useAdvancedPWA } from './hooks/useAdvancedPWA';
-import './utils/locationTest'; // Import for debugging
+// Removed dev-only debug import for production builds
 
 // Lazy load non-critical components
 const AddItemModal = lazy(() => import('./components/AddItemModal'));
@@ -57,7 +57,7 @@ function App() {
   // Loading state management
   const [isLoading, setIsLoading] = useState(true);
   const [loadingProgress, setLoadingProgress] = useState(0);
-  const [loadingPhase, setLoadingPhase] = useState<string>('Initializing...');
+  // Removed unused loading phase state to reduce noise
   
   // Orlando, FL coordinates as default center
   const defaultCenter: [number, number] = [28.5383, -81.3792];
@@ -71,15 +71,13 @@ function App() {
   // Phase 3: Advanced Performance Monitoring & PWA
   const {
     metrics: advancedMetrics,
-    userBehavior,
     performanceScore,
     trackComponentLoadStart: trackAdvancedComponentLoad,
     trackComponentLoadEnd: trackAdvancedComponentEnd,
     trackRenderStart,
     trackRenderEnd,
     trackUserInteraction,
-    generateReport,
-    exportData
+    generateReport
   } = useAdvancedPerformanceMonitoring();
   
   // Phase 2: Service Worker & Advanced Caching
@@ -88,23 +86,16 @@ function App() {
     isInstalled: swInstalled, 
     isUpdated: swUpdated,
     isOnline: swOnline,
-    skipWaiting: swSkipWaiting,
-    getCacheInfo: swGetCacheInfo,
-    clearCache: swClearCache
+    skipWaiting: swSkipWaiting
   } = useServiceWorker();
   
   const { 
     trackUserAction,
-    cacheMapTilesIntelligently,
-    manageCache: advancedManageCache,
-    connectionInfo: advancedConnectionInfo
+    cacheMapTilesIntelligently
   } = useAdvancedCaching();
   
   const { 
-    networkQuality,
     isOnline: networkOnline,
-    addToBatch,
-    getAdaptiveLoadingStrategy,
     requestOfflineSync
   } = useNetworkOptimization();
   
@@ -114,8 +105,7 @@ function App() {
     installPWA,
     isInstalling,
     installationProgress,
-    updateAvailable,
-    checkForUpdates,
+    // checkForUpdates,
     shareContent,
     offlineQueue,
     syncStatus
@@ -224,7 +214,7 @@ function App() {
         trackComponentLoadStart('Core Initialization');
         trackAdvancedComponentLoad('Core Initialization');
         trackRenderStart('App');
-        setLoadingPhase('Loading core components...');
+        // Phase info no longer tracked in state
         setLoadingProgress(20);
         await new Promise(resolve => setTimeout(resolve, 200)); // Simulate loading
         trackComponentLoadEnd('Core Initialization');
@@ -233,7 +223,7 @@ function App() {
         // Phase 2: Database connection (40%)
         trackComponentLoadStart('Database Connection');
         trackAdvancedComponentLoad('Database Connection');
-        setLoadingPhase('Connecting to database...');
+        
         setLoadingProgress(40);
         await new Promise(resolve => setTimeout(resolve, 300));
         trackComponentLoadEnd('Database Connection');
@@ -242,7 +232,7 @@ function App() {
         // Phase 3: Map initialization (60%)
         trackComponentLoadStart('Map Initialization');
         trackAdvancedComponentLoad('Map Initialization');
-        setLoadingPhase('Initializing map...');
+        
         setLoadingProgress(60);
         await new Promise(resolve => setTimeout(resolve, 400));
         trackComponentLoadEnd('Map Initialization');
@@ -251,14 +241,14 @@ function App() {
         // Phase 4: Location services (80%)
         trackComponentLoadStart('Location Services');
         trackAdvancedComponentLoad('Location Services');
-        setLoadingPhase('Setting up location services...');
+        
         setLoadingProgress(80);
         await getUserLocation(false);
         trackComponentLoadEnd('Location Services');
         trackAdvancedComponentEnd('Location Services');
         
         // Phase 5: Complete (100%)
-        setLoadingPhase('Ready!');
+        
         setLoadingProgress(100);
         await new Promise(resolve => setTimeout(resolve, 200));
         
@@ -555,9 +545,9 @@ function App() {
                 {networkOnline ? '🌐' : '📱'}
               </div>
               <span>Network: {networkOnline ? 'Online' : 'Offline'}</span>
-              {networkQuality && (
+              {false && (
                 <div className="network-quality">
-                  {networkQuality.effectiveType.toUpperCase()} • {networkQuality.downlink.toFixed(1)}Mbps
+                  {/* Network details hidden to reduce noise */}
                 </div>
               )}
             </div>

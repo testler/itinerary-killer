@@ -8,7 +8,10 @@ const GOOGLE_BASE_URL = 'https://maps.googleapis.com';
 // Explicit whitelist of allowed Google API GET endpoints
 const ALLOWED_ENDPOINTS = [
 	'/maps/api/place/textsearch/json',
-	'/maps/api/geocode/json'
+	'/maps/api/geocode/json',
+	'/maps/api/place/autocomplete/json',
+	'/maps/api/place/details/json',
+	'/maps/api/place/findplacefromtext/json'
 ];
 
 // Clone all query params except a specific key (e.g., 'endpoint')
@@ -82,6 +85,17 @@ export default {
 		if (!endpoint || !ALLOWED_ENDPOINTS.includes(endpoint)) {
 			return applyCorsHeaders(
 				tagSecretHeader(new Response(JSON.stringify({ error: 'endpoint_not_allowed' }), {
+					status: 400,
+					headers: { 'Content-Type': 'application/json' }
+				}), env),
+				allowedOrigin
+			);
+		}
+
+		// Basic parameter validation to reduce abuse
+		if (endpoint.includes('/place/details') && !url.searchParams.get('place_id')) {
+			return applyCorsHeaders(
+				tagSecretHeader(new Response(JSON.stringify({ error: 'missing_place_id' }), {
 					status: 400,
 					headers: { 'Content-Type': 'application/json' }
 				}), env),
