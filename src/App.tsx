@@ -253,9 +253,9 @@ function App() {
     );
   };
 
-  // Progressive loading sequence
+  // Progressive loading sequence - Fixed: Run only once when authenticated
   useEffect(() => {
-    if (!isAuthed) return;
+    if (!isAuthed || !isLoading) return;
     
     const loadSequence = async () => {
       try {
@@ -310,7 +310,7 @@ function App() {
     };
     
     loadSequence();
-  }, [isAuthed, trackComponentLoadStart, trackComponentLoadEnd, trackAdvancedComponentLoad, trackAdvancedComponentEnd, trackRenderStart, trackRenderEnd]);
+  }, [isAuthed]); // Removed all function dependencies to prevent infinite loop
 
   useEffect(() => {
     if (window.innerWidth <= 768) {

@@ -308,7 +308,7 @@ export const useNetworkOptimization = () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     };
-  }, [scheduleBatchProcessing]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Monitor connection quality changes
   useEffect(() => {
@@ -339,7 +339,7 @@ export const useNetworkOptimization = () => {
         conn.removeEventListener('change', handleConnectionChange);
       };
     }
-  }, [getNetworkQuality, scheduleBatchProcessing]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup on unmount
   useEffect(() => {

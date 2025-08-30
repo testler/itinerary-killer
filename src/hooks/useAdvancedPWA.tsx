@@ -428,7 +428,7 @@ export const useAdvancedPWA = () => {
       clearInterval(updateCheckInterval);
       clearInterval(installCheckInterval);
     };
-  }, [checkInstallationStatus, checkStandaloneMode, handleBeforeInstallPrompt, handleAppInstalled, handleOnlineStatusChange, checkForUpdates]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     // State

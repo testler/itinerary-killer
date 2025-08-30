@@ -294,7 +294,7 @@ export const useServiceWorker = () => {
   // Initialize service worker
   useEffect(() => {
     registerServiceWorker();
-  }, [registerServiceWorker]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Listen for online/offline events
   useEffect(() => {

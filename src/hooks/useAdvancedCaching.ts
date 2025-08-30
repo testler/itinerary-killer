@@ -326,7 +326,7 @@ export const useAdvancedCaching = () => {
       conn.addEventListener('change', handleChange);
       return () => conn.removeEventListener('change', handleChange);
     }
-  }, [getConnectionInfo, manageCache]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Periodic cache management
   useEffect(() => {
@@ -335,7 +335,7 @@ export const useAdvancedCaching = () => {
     }, 5 * 60 * 1000); // Every 5 minutes
 
     return () => clearInterval(interval);
-  }, [manageCache]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {
     // Cache strategies

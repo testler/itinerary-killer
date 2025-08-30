@@ -444,7 +444,7 @@ ${score >= 90 ? '🟢 Excellent' : score >= 70 ? '🟡 Good' : score >= 50 ? '�
     return () => {
       stopMonitoring();
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Calculate performance score when metrics change
   useEffect(() => {
