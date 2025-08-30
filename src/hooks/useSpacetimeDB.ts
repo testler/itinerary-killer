@@ -1,43 +1,92 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { ItineraryItem } from '../types';
+import getSupabase from '../services/supabaseClient';
 
-// For now, we'll use localStorage as a fallback until Spacetime DB is fully integrated
-// This can be easily replaced with actual Spacetime DB calls later
+type DbItem = {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  priority: string | null;
+  cost: number | null;
+  estimated_duration: number | null;
+  address: string | null;
+  location_lat: number | null;
+  location_lng: number | null;
+  created_at: string | null;
+  completed: boolean | null;
+  is_open: boolean | null;
+  notes?: string | null;
+};
+
+const fromDb = (r: DbItem): ItineraryItem => ({
+  id: r.id,
+  title: r.title,
+  description: r.description || '',
+  category: (r.category || 'Other') as ItineraryItem['category'],
+  priority: ((r.priority as any) || 'low') as ItineraryItem['priority'],
+  cost: Number(r.cost || 0),
+  estimatedDuration: Number(r.estimated_duration || 0),
+  address: r.address || '',
+  location: { lat: Number(r.location_lat || 0), lng: Number(r.location_lng || 0) },
+  notes: r.notes || '',
+  isOpen: Boolean(r.is_open),
+  createdAt: r.created_at ? new Date(r.created_at) : new Date(),
+  completed: Boolean(r.completed)
+});
+
+const toDb = (i: ItineraryItem): DbItem => ({
+  id: i.id,
+  title: i.title,
+  description: i.description,
+  category: i.category,
+  priority: i.priority,
+  cost: i.cost,
+  estimated_duration: i.estimatedDuration,
+  address: i.address,
+  location_lat: i.location.lat,
+  location_lng: i.location.lng,
+  created_at: i.createdAt.toISOString(),
+  completed: i.completed,
+  is_open: i.isOpen,
+  notes: i.notes
+});
 
 export function useSpacetimeDB() {
   const [items, setItems] = useState<ItineraryItem[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState<boolean>(false);
 
-  // Load items from localStorage on mount
+  // Initial fetch
   useEffect(() => {
-    const savedItems = localStorage.getItem('itinerary-items');
-    if (savedItems) {
+    const fetchItems = async () => {
+      setLoading(true);
       try {
-        const parsedItems = JSON.parse(savedItems).map((item: any) => ({
-          ...item,
-          createdAt: new Date(item.createdAt),
-        }));
-        setItems(parsedItems);
-      } catch (error) {
-        console.error('Error loading saved items:', error);
+        const supabase = await getSupabase();
+        const { data, error } = await supabase
+          .from('items')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        setItems((data || []).map(fromDb));
+      } catch (e) {
+        console.error('Supabase fetch failed:', e);
+      } finally {
+        setLoading(false);
       }
-    }
+    };
+    fetchItems();
   }, []);
-
-  // Save items to localStorage whenever items change
-  useEffect(() => {
-    localStorage.setItem('itinerary-items', JSON.stringify(items));
-  }, [items]);
 
   const addItem = async (item: ItineraryItem): Promise<void> => {
     setLoading(true);
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 100));
-      setItems(prev => [...prev, item]);
-    } catch (error) {
-      console.error('Error adding item:', error);
-      throw error;
+      const supabase = await getSupabase();
+      const { error } = await supabase.from('items').insert([toDb(item)]);
+      if (error) throw error;
+      setItems(prev => [item, ...prev]);
+    } catch (e) {
+      console.error('Supabase insert failed:', e);
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -46,12 +95,13 @@ export function useSpacetimeDB() {
   const addItems = async (newItems: ItineraryItem[]): Promise<void> => {
     setLoading(true);
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 100));
-      setItems(prev => [...prev, ...newItems]);
-    } catch (error) {
-      console.error('Error adding items:', error);
-      throw error;
+      const supabase = await getSupabase();
+      const { error } = await supabase.from('items').insert(newItems.map(toDb));
+      if (error) throw error;
+      setItems(prev => [...newItems, ...prev]);
+    } catch (e) {
+      console.error('Supabase bulk insert failed:', e);
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -60,14 +110,16 @@ export function useSpacetimeDB() {
   const updateItem = async (id: string, updates: Partial<ItineraryItem>): Promise<void> => {
     setLoading(true);
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 100));
-      setItems(prev => prev.map(item => 
-        item.id === id ? { ...item, ...updates } : item
-      ));
-    } catch (error) {
-      console.error('Error updating item:', error);
-      throw error;
+      const existing = items.find(i => i.id === id);
+      if (!existing) return;
+      const merged: ItineraryItem = { ...existing, ...updates } as ItineraryItem;
+      const supabase = await getSupabase();
+      const { error } = await supabase.from('items').update(toDb(merged)).eq('id', id);
+      if (error) throw error;
+      setItems(prev => prev.map(i => (i.id === id ? merged : i)));
+    } catch (e) {
+      console.error('Supabase update failed:', e);
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -76,12 +128,13 @@ export function useSpacetimeDB() {
   const deleteItem = async (id: string): Promise<void> => {
     setLoading(true);
     try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 100));
-      setItems(prev => prev.filter(item => item.id !== id));
-    } catch (error) {
-      console.error('Error deleting item:', error);
-      throw error;
+      const supabase = await getSupabase();
+      const { error } = await supabase.from('items').delete().eq('id', id);
+      if (error) throw error;
+      setItems(prev => prev.filter(i => i.id !== id));
+    } catch (e) {
+      console.error('Supabase delete failed:', e);
+      throw e;
     } finally {
       setLoading(false);
     }
@@ -98,18 +151,11 @@ export function useSpacetimeDB() {
   const getNearbyItems = (lat: number, lng: number, radiusMiles: number = 10): ItineraryItem[] => {
     return items.filter(item => {
       const distance = Math.sqrt(
-        Math.pow(item.location.lat - lat, 2) + 
-        Math.pow(item.location.lng - lng, 2)
-      ) * 69; // Rough conversion to miles
+        Math.pow(item.location.lat - lat, 2) + Math.pow(item.location.lng - lng, 2)
+      ) * 69;
       return distance <= radiusMiles;
     });
   };
-
-  // TODO: Replace with actual Spacetime DB integration
-  // const spacetimeClient = new SpacetimeClient({
-  //   url: process.env.REACT_APP_SPACETIME_URL,
-  //   token: process.env.REACT_APP_SPACETIME_TOKEN
-  // });
 
   return {
     items,
@@ -120,6 +166,6 @@ export function useSpacetimeDB() {
     deleteItem,
     getItemsByCategory,
     getItemsByPriority,
-    getNearbyItems,
+    getNearbyItems
   };
 }

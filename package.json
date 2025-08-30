@@ -12,6 +12,7 @@
     "format": "prettier -w ."
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.56.1",
     "date-fns": "^2.30.0",
     "dayjs": "^1.11.14",
     "leaflet": "^1.9.4",
