@@ -1,9 +1,11 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
-import { Icon } from 'leaflet';
+import { Icon, LeafletMouseEvent } from 'leaflet';
 import { MapPin, Plus, Menu, AlertCircle, RefreshCw } from 'lucide-react';
 import { ItineraryItem, UserLocation } from './types';
 import PasswordGate from './components/PasswordGate';
+import SiteLocked from './components/SiteLocked';
+import { useSecretVerification } from './hooks/useSecretVerification';
 import { useSpacetimeDB } from './hooks/useSpacetimeDB';
 import { calculateDistance } from './utils/location';
 import { AppSkeleton } from './components/LoadingSkeleton';
@@ -32,7 +34,7 @@ function MapUpdater({ center }: { center: [number, number] }) {
 }
 
 // Custom hook to handle map clicks
-function MapClickHandler({ onMapClick }: { onMapClick: (event: any) => void }) {
+function MapClickHandler({ onMapClick }: { onMapClick: (event: LeafletMouseEvent) => void }) {
   useMapEvents({
     click: onMapClick,
   });
@@ -40,6 +42,7 @@ function MapClickHandler({ onMapClick }: { onMapClick: (event: any) => void }) {
 }
 
 function App() {
+  const secretState = useSecretVerification();
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -379,7 +382,7 @@ function App() {
   };
 
   // Handle map click to set manual location
-  const handleMapClick = (event: any) => {
+  const handleMapClick = (event: LeafletMouseEvent) => {
     const { lat, lng } = event.latlng;
     const manualLocation: UserLocation = {
       lat,
@@ -419,13 +422,26 @@ function App() {
     popupAnchor: [0, -32]
   });
 
+  // Global secret verification gate
+  if (secretState.status === 'checking') {
+    return (
+      <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 16 }}>
+        <div>Verifying environment…</div>
+      </div>
+    );
+  }
+
+  if (secretState.status === 'locked') {
+    return <SiteLocked reason={secretState.reason} />;
+  }
+
   if (!isAuthed) {
     return (
       <PasswordGate
         expectedPassword={import.meta.env.VITE_SITE_PASSWORD}
         onAuthenticated={() => {
           setIsAuthed(true);
-          try { localStorage.setItem('site-authed', 'true'); } catch {}
+          try { localStorage.setItem('site-authed', 'true'); } catch { /* ignore */ }
         }}
       />
     );
@@ -545,11 +561,7 @@ function App() {
                 {networkOnline ? '🌐' : '📱'}
               </div>
               <span>Network: {networkOnline ? 'Online' : 'Offline'}</span>
-              {false && (
-                <div className="network-quality">
-                  {/* Network details hidden to reduce noise */}
-                </div>
-              )}
+              {null}
             </div>
           </div>
 

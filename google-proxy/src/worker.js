@@ -40,10 +40,12 @@ function applyCorsHeaders(resp, allowedOrigin) {
 	return resp;
 }
 
-// Tag response with header indicating whether secret is present
+// Tag response with headers indicating whether secrets are present
 function tagSecretHeader(resp, env) {
-	const hasSecret = Boolean(env && env.GOOGLE_API_KEY);
-	resp.headers.set('X-Proxy-Secret', hasSecret ? 'present' : 'missing');
+	const hasGoogle = Boolean(env && env.GOOGLE_API_KEY);
+	const hasPassword = Boolean(env && env.SITE_PASSWORD);
+	resp.headers.set('X-Proxy-Secret', hasGoogle ? 'present' : 'missing');
+	resp.headers.set('X-Password-Secret', hasPassword ? 'present' : 'missing');
 	return resp;
 }
 
@@ -63,6 +65,21 @@ export default {
 			return applyCorsHeaders(
 				tagSecretHeader(new Response(JSON.stringify({ error: 'origin_not_allowed' }), {
 					status: 403,
+					headers: { 'Content-Type': 'application/json' }
+				}), env),
+				allowedOrigin
+			);
+		}
+
+		// Provide a lightweight verification endpoint
+		if (url.pathname === '/verify') {
+			const payload = {
+				googleKey: Boolean(env && env.GOOGLE_API_KEY),
+				sitePassword: Boolean(env && env.SITE_PASSWORD)
+			};
+			return applyCorsHeaders(
+				tagSecretHeader(new Response(JSON.stringify(payload), {
+					status: 200,
 					headers: { 'Content-Type': 'application/json' }
 				}), env),
 				allowedOrigin

@@ -9,6 +9,7 @@ export default function PasswordGate({ expectedPassword, onAuthenticated }: Pass
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const hasPassword = useMemo(() => typeof expectedPassword === 'string' && expectedPassword.length > 0, [expectedPassword]);
+  // PasswordGate is UI-only again; external verification should gate rendering
 
   // If no password is configured, DO NOT authenticate. Keep the site locked.
 
@@ -25,7 +26,32 @@ export default function PasswordGate({ expectedPassword, onAuthenticated }: Pass
     setError('Incorrect password');
   };
 
-  // If no password, the component will immediately authenticate above.
+  // Secret verification gate
+  if (secretsVerified === null) {
+    return (
+      <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 16 }}>
+        <div>Verifying environment…</div>
+      </div>
+    );
+  }
+
+  if (secretsVerified === false) {
+    return (
+      <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 16 }}>
+        <div className="modal" style={{ maxWidth: 420, width: '100%', background: 'white', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.15)', padding: 20 }}>
+          <div className="modal-header" style={{ marginBottom: 12 }}>
+            <h2 style={{ margin: 0, color: '#dc2626' }}>🚫 Site Unavailable</h2>
+            <p style={{ margin: '8px 0 0 0', color: '#666' }}>Required secrets are not configured.</p>
+          </div>
+          <div className="modal-body">
+            <div style={{ padding: '16px', background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', color: '#991b1b' }}>
+              <p style={{ margin: 0 }}>The site is locked until Cloudflare Worker secrets are set. {verificationError ? `(${verificationError})` : ''}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 16 }}>
