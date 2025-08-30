@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { useState, useEffect } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
 import { Icon } from 'leaflet';
-import { MapPin, Plus, X, Menu, AlertCircle, RefreshCw } from 'lucide-react';
+import { MapPin, Plus, Menu, AlertCircle, RefreshCw } from 'lucide-react';
 import { ItineraryItem, UserLocation } from './types';
 import AddItemModal from './components/AddItemModal';
 import ImportJsonModal from './components/ImportJsonModal';
@@ -22,12 +22,19 @@ function MapUpdater({ center }: { center: [number, number] }) {
   return null;
 }
 
+// Custom hook to handle map clicks
+function MapClickHandler({ onMapClick }: { onMapClick: (event: any) => void }) {
+  useMapEvents({
+    click: onMapClick,
+  });
+  return null;
+}
+
 function App() {
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [selectedItem, setSelectedItem] = useState<ItineraryItem | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isAuthed, setIsAuthed] = useState<boolean>(() => {
@@ -165,7 +172,6 @@ function App() {
 
   // Handle item selection
   const handleItemSelect = (item: ItineraryItem) => {
-    setSelectedItem(item);
     setMapCenter([item.location.lat, item.location.lng]);
   };
 
@@ -374,7 +380,6 @@ function App() {
           zoom={13}
           className="map"
           zoomControl={false}
-          onClick={handleMapClick}
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -436,6 +441,7 @@ function App() {
           ))}
 
           <MapUpdater center={mapCenter} />
+          <MapClickHandler onMapClick={handleMapClick} />
         </MapContainer>
       </div>
 

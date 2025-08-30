@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, MapPin, Search } from 'lucide-react';
+import { X, Search } from 'lucide-react';
 import { ItineraryItem, UserLocation } from '../types';
 import { fetchPlaceDetailsFromGoogle, getCoordinatesFromAddress, fetchPlaceAutocomplete, fetchPlaceDetailsByPlaceId } from '../utils/location';
 
@@ -227,7 +227,7 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
         setFetchingHours(false);
         return;
       }
-      const place = await import('../utils/location').then(m => m.fetchPlaceDetailsFromGoogle(title, address));
+      const place = await fetchPlaceDetailsFromGoogle(title, address);
       if (place.opening_hours && place.opening_hours.periods) {
         // Google returns periods as array of {open: {day, time}, close: {day, time}}
         const newHours: { [day: string]: { open: string; close: string } | null } = {};
