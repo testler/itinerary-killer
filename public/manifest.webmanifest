@@ -65,10 +65,10 @@
       "name": "Add Activity",
       "short_name": "Add",
       "description": "Quickly add a new activity to your itinerary",
-      "url": "/?action=add",
+      "url": "./?action=add",
       "icons": [
         {
-          "src": "/icons/icon-96.png",
+          "src": "icons/icon-96.png",
           "sizes": "96x96"
         }
       ]
@@ -77,10 +77,10 @@
       "name": "View Map",
       "short_name": "Map",
       "description": "Open the interactive map view",
-      "url": "/?view=map",
+      "url": "./?view=map",
       "icons": [
         {
-          "src": "/icons/icon-96.png",
+          "src": "icons/icon-96.png",
           "sizes": "96x96"
         }
       ]
@@ -89,10 +89,10 @@
       "name": "Import Data",
       "short_name": "Import",
       "description": "Import activities from JSON file",
-      "url": "/?action=import",
+      "url": "./?action=import",
       "icons": [
         {
-          "src": "/icons/icon-96.png",
+          "src": "icons/icon-96.png",
           "sizes": "96x96"
         }
       ]
@@ -133,12 +133,12 @@
   "protocol_handlers": [
     {
       "protocol": "web+itinerary",
-      "url": "/?data=%s"
+      "url": "./?data=%s"
     }
   ],
   "file_handlers": [
     {
-      "action": "/?action=import",
+      "action": "./?action=import",
       "accept": {
         "application/json": [".json"],
         "text/plain": [".txt"]
@@ -146,7 +146,7 @@
     }
   ],
   "share_target": {
-    "action": "/?action=share",
+    "action": "./?action=share",
     "method": "POST",
     "enctype": "multipart/form-data",
     "params": {
