@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Trash2, CheckCircle, Circle, MapPin, Clock, DollarSign, Search } from 'lucide-react';
 import { ItineraryItem, UserLocation } from '../types';
+import { FormField, Button } from '../ui';
 import dayjs from 'dayjs';
 
 interface ItineraryListProps {
@@ -213,56 +214,28 @@ export default function ItineraryList({
     <div>
       {/* Search Bar */}
       <div style={{ marginBottom: '1rem' }} className="filters-sticky">
-        <div style={{ position: 'relative', marginBottom: '0.75rem' }}>
-          <Search size={16} style={{ 
-            position: 'absolute', 
-            left: '0.75rem', 
-            top: '50%', 
-            transform: 'translateY(-50%)', 
-            color: '#9ca3af' 
-          }} />
-          <input
-            type="text"
-            placeholder="Search activities, places, or categories..."
-            value={searchQuery}
-            onChange={(e) => {
-              const value = e.target.value;
-              // Sanitize input to prevent potential XSS
-              const sanitizedValue = value.replace(/[<>]/g, '');
-              setSearchQuery(sanitizedValue);
-            }}
-            aria-label="Search activities"
-            maxLength={100}
-            style={{
-              width: '100%',
-              padding: '0.75rem 0.75rem 0.75rem 2.5rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '6px',
-              fontSize: '0.875rem',
-              outline: 'none'
-            }}
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery('')}
-              style={{
-                position: 'absolute',
-                right: '0.75rem',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                color: '#9ca3af',
-                fontSize: '1.25rem',
-                lineHeight: 1
+        <FormField id="search" label="Search">
+          <div style={{ position: 'relative' }}>
+            <Search size={16} style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af' }} />
+            <input
+              type="text"
+              placeholder="Search activities, places, or categories..."
+              value={searchQuery}
+              onChange={(e) => {
+                const value = e.target.value;
+                const sanitizedValue = value.replace(/[<>]/g, '');
+                setSearchQuery(sanitizedValue);
               }}
-              title="Clear search"
-            >
-              ×
-            </button>
-          )}
-        </div>
+              maxLength={100}
+              style={{ width: '100%', padding: '0.75rem 0.75rem 0.75rem 2.5rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.875rem', outline: 'none' }}
+            />
+            {searchQuery && (
+              <Button onClick={() => setSearchQuery('')} variant="ghost" size="sm" aria-label="Clear search" style={{ position: 'absolute', right: '0.25rem', top: '50%', transform: 'translateY(-50%)' }}>
+                ×
+              </Button>
+            )}
+          </div>
+        </FormField>
         {searchQuery && (
           <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
             Found {filteredItems.length} result{filteredItems.length !== 1 ? 's' : ''} for "{searchQuery}"
@@ -273,79 +246,57 @@ export default function ItineraryList({
       {/* Filters and Controls */}
       <div style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-          <select
-            value={selectedCategory}
-            onChange={(e) => setSelectedCategory(e.target.value)}
-            aria-label="Filter by category"
-            style={{
-              padding: '0.5rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '4px',
-              fontSize: '0.875rem',
-              flex: 1
-            }}
-          >
-            {CATEGORIES.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-          
-          <select
-            value={selectedPriority}
-            onChange={(e) => setSelectedPriority(e.target.value)}
-            aria-label="Filter by priority"
-            style={{
-              padding: '0.5rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '4px',
-              fontSize: '0.875rem',
-              flex: 1
-            }}
-          >
-            {PRIORITIES.map(priority => (
-              <option key={priority} value={priority}>
-                {priority === 'All' ? 'All Priorities' : priority.charAt(0).toUpperCase() + priority.slice(1)}
-              </option>
-            ))}
-          </select>
+          <FormField id="filter-category" label="Category">
+            <select
+              value={selectedCategory}
+              onChange={(e) => setSelectedCategory(e.target.value)}
+              style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.875rem', flex: 1 }}
+            >
+              {CATEGORIES.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+          </FormField>
+          <FormField id="filter-priority" label="Priority">
+            <select
+              value={selectedPriority}
+              onChange={(e) => setSelectedPriority(e.target.value)}
+              style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.875rem', flex: 1 }}
+            >
+              {PRIORITIES.map(priority => (
+                <option key={priority} value={priority}>
+                  {priority === 'All' ? 'All Priorities' : priority.charAt(0).toUpperCase() + priority.slice(1)}
+                </option>
+              ))}
+            </select>
+          </FormField>
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-          <select
-            value={selectedOpenStatus}
-            onChange={(e) => setSelectedOpenStatus(e.target.value as 'all' | 'open' | 'closed')}
-            aria-label="Filter by open status"
-            style={{
-              padding: '0.5rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '4px',
-              fontSize: '0.875rem',
-              flex: 1
-            }}
-          >
-            {OPEN_STATUS_OPTIONS.map(option => (
-              <option key={option.value} value={option.value}>
-                {option.icon} {option.label}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as any)}
-            aria-label="Sort activities"
-            style={{
-              padding: '0.5rem',
-              border: '1px solid #d1d5db',
-              borderRadius: '4px',
-              fontSize: '0.875rem',
-              flex: 1
-            }}
-          >
-            <option value="createdAt">Sort by Date Added</option>
-            <option value="priority">Sort by Priority</option>
-            <option value="distance">Sort by Distance</option>
-          </select>
+          <FormField id="filter-open" label="Open status">
+            <select
+              value={selectedOpenStatus}
+              onChange={(e) => setSelectedOpenStatus(e.target.value as 'all' | 'open' | 'closed')}
+              style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.875rem', flex: 1 }}
+            >
+              {OPEN_STATUS_OPTIONS.map(option => (
+                <option key={option.value} value={option.value}>
+                  {option.icon} {option.label}
+                </option>
+              ))}
+            </select>
+          </FormField>
+          <FormField id="sort-by" label="Sort by">
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              style={{ padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px', fontSize: '0.875rem', flex: 1 }}
+            >
+              <option value="createdAt">Date Added</option>
+              <option value="priority">Priority</option>
+              <option value="distance">Distance</option>
+            </select>
+          </FormField>
         </div>
 
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>

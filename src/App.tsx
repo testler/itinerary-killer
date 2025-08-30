@@ -9,6 +9,7 @@ import { useSecretVerification } from './hooks/useSecretVerification';
 import { useSpacetimeDB } from './hooks/useSpacetimeDB';
 import { calculateDistance } from './utils/location';
 import { AppSkeleton } from './components/LoadingSkeleton';
+import { SafeAreaFooter, Button } from './ui';
 import { usePerformanceMonitoring } from './hooks/usePerformanceMonitoring';
 import { useAdvancedPerformanceMonitoring } from './hooks/useAdvancedPerformanceMonitoring';
 import { useServiceWorker } from './hooks/useServiceWorker';
@@ -755,56 +756,36 @@ function App() {
           </div>
         )}
 
-        {/* Add item button */}
-        <button
-          className="add-item-button"
-          onClick={() => setShowAddModal(true)}
-          aria-label="Add new activity"
-          style={{
-            marginBottom: 'env(safe-area-inset-bottom)',
-            marginRight: 'env(safe-area-inset-right)'
-          }}
-        >
-          <Plus size={24} />
-        </button>
-
-        {/* Share button */}
-        {pwaFeatures.hasShareTarget && (
-          <button
-            className="share-button"
-            onClick={() => shareContent({
-              title: 'My Orlando Adventure',
-              text: `Check out my ${items.length} planned activities in Orlando!`,
-              url: window.location.href
-            })}
-            aria-label="Share itinerary"
-            style={{
-              marginBottom: 'env(safe-area-inset-bottom)',
-              marginRight: 'env(safe-area-inset-right)',
-              marginTop: '1rem'
-            }}
-          >
-            📤
-          </button>
-        )}
-
-        {/* Performance Report button */}
-        <button
-          className="performance-button"
-          onClick={() => {
-            const report = generateReport();
-            console.log(report);
-            alert('Performance report logged to console. Check developer tools.');
-          }}
-          aria-label="Generate performance report"
-          style={{
-            marginBottom: 'env(safe-area-inset-bottom)',
-            marginRight: 'env(safe-area-inset-right)',
-            marginTop: '1rem'
-          }}
-        >
-          📊
-        </button>
+        {/* Bottom actions as safe-area aware footer */}
+        <SafeAreaFooter>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="primary" size="lg" aria-label="Add new activity" onClick={() => setShowAddModal(true)} leftIcon={<Plus size={20} />}>Add</Button>
+            {pwaFeatures.hasShareTarget && (
+              <Button
+                variant="neutral"
+                aria-label="Share itinerary"
+                onClick={() => shareContent({
+                  title: 'My Orlando Adventure',
+                  text: `Check out my ${items.length} planned activities in Orlando!`,
+                  url: window.location.href
+                })}
+              >
+                📤 Share
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              aria-label="Generate performance report"
+              onClick={() => {
+                const report = generateReport();
+                console.log(report);
+                alert('Performance report logged to console. Check developer tools.');
+              }}
+            >
+              📊 Perf
+            </Button>
+          </div>
+        </SafeAreaFooter>
 
         {/* Map */}
         <MapContainer

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Search } from 'lucide-react';
 import { ItineraryItem, UserLocation } from '../types';
 import { fetchPlaceDetailsFromGoogle, getCoordinatesFromAddress, fetchPlaceAutocomplete, fetchPlaceDetailsByPlaceId } from '../utils/location';
+import { Button, FormField, SafeAreaFooter } from '../ui';
 
 interface AddItemModalProps {
   onClose: () => void;
@@ -46,7 +47,7 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
   const [autoPopulateError, setAutoPopulateError] = useState<string | null>(null);
   const [addressSuggestions, setAddressSuggestions] = useState<Array<{ description: string; place_id: string }>>([]);
   const [addressLoading, setAddressLoading] = useState(false);
-  const [addressDebounceTimer, setAddressDebounceTimer] = useState<any>(null);
+  const [addressDebounceTimer, setAddressDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   // Set default location to user's location if available
   useEffect(() => {
@@ -83,7 +84,7 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
       } else {
         setErrors(prev => ({ ...prev, address: 'Address not found. Please try a different address.' }));
       }
-    } catch (error) {
+    } catch {
       setErrors(prev => ({ ...prev, address: 'Error searching for address. Please try again.' }));
     } finally {
       setSearching(false);
@@ -107,7 +108,7 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
         setAddressLoading(true);
         const results = await fetchPlaceAutocomplete(value);
         setAddressSuggestions(results);
-      } catch (err) {
+      } catch {
         setAddressSuggestions([]);
       } finally {
         setAddressLoading(false);
@@ -137,18 +138,20 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
       } else if (place.types && place.types.length) {
         newDescription = place.types.map((t: string) => t.replace(/_/g, ' ')).join(', ');
       }
-      let newOpeningHours: { [day: string]: { open: string; close: string } | null } = {};
-      if (place.opening_hours && place.opening_hours.periods) {
-        for (let i = 0; i < 7; i++) {
-          const period = place.opening_hours.periods.find((p: any) => p.open.day === i);
-          if (period) {
-            newOpeningHours[i] = {
-              open: period.open.time.replace(/(\d{2})(\d{2})/, '$1:$2'),
-              close: period.close?.time ? period.close.time.replace(/(\d{2})(\d{2})/, '$1:$2') : '',
-            };
-          } else {
-            newOpeningHours[i] = null;
-          }
+      type OpeningPeriod = { open: { day: number; time: string }; close?: { time?: string } };
+      const newOpeningHours: Record<number, { open: string; close: string } | null> = {};
+      const periods = (place.opening_hours && Array.isArray(place.opening_hours.periods)
+        ? (place.opening_hours.periods as OpeningPeriod[])
+        : ([] as OpeningPeriod[]));
+      for (let i = 0; i < 7; i++) {
+        const period = periods.find(p => p.open.day === i);
+        if (period) {
+          newOpeningHours[i] = {
+            open: period.open.time.replace(/(\d{2})(\d{2})/, '$1:$2'),
+            close: period.close?.time ? period.close.time.replace(/(\d{2})(\d{2})/, '$1:$2') : '',
+          };
+        } else {
+          newOpeningHours[i] = null;
         }
       }
       setFormData(prev => ({ ...prev, title: newTitle, address: newAddress, description: newDescription }));
@@ -230,9 +233,10 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
       const place = await fetchPlaceDetailsFromGoogle(title, address);
       if (place.opening_hours && place.opening_hours.periods) {
         // Google returns periods as array of {open: {day, time}, close: {day, time}}
-        const newHours: { [day: string]: { open: string; close: string } | null } = {};
+        type OpeningPeriod = { open: { day: number; time: string }; close?: { time?: string } };
+        const newHours: Record<number, { open: string; close: string } | null> = {};
         for (let i = 0; i < 7; i++) {
-          const period = place.opening_hours.periods.find((p: any) => p.open.day === i);
+          const period = (place.opening_hours.periods as OpeningPeriod[]).find((p: OpeningPeriod) => p.open.day === i);
           if (period) {
             newHours[i] = {
               open: period.open.time.replace(/(\d{2})(\d{2})/, '$1:$2'),
@@ -246,8 +250,9 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
       } else {
         setFetchHoursError('No opening hours found for this place.');
       }
-    } catch (err: any) {
-      setFetchHoursError('Failed to fetch hours: ' + (err.message || err));
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      setFetchHoursError('Failed to fetch hours: ' + message);
     } finally {
       setFetchingHours(false);
     }
@@ -290,18 +295,20 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
         if (coords) newLocation = coords;
       }
       // Opening hours
-      let newOpeningHours: { [day: string]: { open: string; close: string } | null } = {};
-      if (place.opening_hours && place.opening_hours.periods) {
-        for (let i = 0; i < 7; i++) {
-          const period = place.opening_hours.periods.find((p: any) => p.open.day === i);
-          if (period) {
-            newOpeningHours[i] = {
-              open: period.open.time.replace(/(\d{2})(\d{2})/, '$1:$2'),
-              close: period.close?.time ? period.close.time.replace(/(\d{2})(\d{2})/, '$1:$2') : '',
-            };
-          } else {
-            newOpeningHours[i] = null;
-          }
+      type OpeningPeriod = { open: { day: number; time: string }; close?: { time?: string } };
+      const newOpeningHours: Record<number, { open: string; close: string } | null> = {};
+      const periods = (place.opening_hours && Array.isArray(place.opening_hours.periods)
+        ? (place.opening_hours.periods as OpeningPeriod[])
+        : ([] as OpeningPeriod[]));
+      for (let i = 0; i < 7; i++) {
+        const period = periods.find(p => p.open.day === i);
+        if (period) {
+          newOpeningHours[i] = {
+            open: period.open.time.replace(/(\d{2})(\d{2})/, '$1:$2'),
+            close: period.close?.time ? period.close.time.replace(/(\d{2})(\d{2})/, '$1:$2') : '',
+          };
+        } else {
+          newOpeningHours[i] = null;
         }
       }
       setFormData(prev => ({
@@ -312,27 +319,28 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
       }));
       setLocation(newLocation);
       setOpeningHours(newOpeningHours);
-    } catch (err: any) {
-      setAutoPopulateError('Failed to auto-populate: ' + (err.message || err));
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
+      setAutoPopulateError('Failed to auto-populate: ' + message);
     } finally {
       setAutoPopulating(false);
     }
   };
 
   const isSlowConnection = () => {
-    const nav = (navigator as any);
-    const type = nav?.connection?.effectiveType;
-    return type && (type === '2g' || type === 'slow-2g' || type === '3g');
+    const nav = navigator as Navigator & { connection?: { effectiveType?: string } };
+    const type = nav.connection?.effectiveType;
+    return type === '2g' || type === 'slow-2g' || type === '3g';
   };
 
   return (
     <div className="modal" onClick={onClose}>
-      <div className="modal-content" onClick={e => e.stopPropagation()}>
+      <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="add-activity-title" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Add New Activity</h2>
-          <button className="close-button" onClick={onClose}>
+          <h2 id="add-activity-title">Add New Activity</h2>
+          <Button className="close-button" variant="ghost" aria-label="Close" onClick={onClose}>
             <X size={24} />
-          </button>
+          </Button>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -368,67 +376,51 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
             {errors.description && <span className="error-text">{errors.description}</span>}
           </div>
 
-          <div className="form-group">
-            <label htmlFor="address">Address *</label>
+          <FormField id="address" label="Address" required error={errors.address}>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <input
                 type="text"
-                id="address"
                 name="address"
                 value={formData.address}
                 onChange={handleAddressChange}
                 onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                className={`scroll-into-view ${errors.address ? 'error' : ''}`}
+                className={`scroll-into-view`}
                 placeholder="Enter address or search for location"
                 style={{ flex: 1 }}
                 aria-autocomplete="list"
                 aria-expanded={addressSuggestions.length > 0}
               />
-              <button
-                type="button"
-                onClick={handleAddressSearch}
-                disabled={searching}
-                style={{
-                  padding: '0.75rem',
-                  background: '#3b82f6',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer'
-                }}
-                aria-label="Search for address"
-              >
+              <Button type="button" onClick={handleAddressSearch} disabled={searching} aria-label="Search for address" variant="primary" size="md">
                 {searching ? '...' : <Search size={16} />}
-              </button>
+              </Button>
             </div>
-            {errors.address && <span className="error-text">{errors.address}</span>}
-            {addressLoading && (
-              <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>Searching...</p>
-            )}
-            {addressSuggestions.length > 0 && (
-              <ul style={{
-                listStyle: 'none',
-                marginTop: '0.5rem',
-                border: '1px solid #e5e7eb',
-                borderRadius: 6,
-                maxHeight: 200,
-                overflowY: 'auto',
-                background: 'white'
-              }} role="listbox">
-                {addressSuggestions.map(s => (
-                  <li key={s.place_id} style={{ padding: '0.5rem 0.75rem', cursor: 'pointer' }}
-                      onClick={() => handleSelectSuggestion(s)} role="option" aria-selected="false">
-                    {s.description}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {location && (
-              <p style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '0.25rem' }}>
-                📍 Location set: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
-              </p>
-            )}
-          </div>
+          </FormField>
+          {addressLoading && (
+            <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>Searching...</p>
+          )}
+          {addressSuggestions.length > 0 && (
+            <ul style={{
+              listStyle: 'none',
+              marginTop: '0.5rem',
+              border: '1px solid #e5e7eb',
+              borderRadius: 6,
+              maxHeight: 200,
+              overflowY: 'auto',
+              background: 'white'
+            }} role="listbox">
+              {addressSuggestions.map(s => (
+                <li key={s.place_id} style={{ padding: '0.5rem 0.75rem', cursor: 'pointer' }}
+                    onClick={() => handleSelectSuggestion(s)} role="option" aria-selected="false">
+                  {s.description}
+                </li>
+              ))}
+            </ul>
+          )}
+          {location && (
+            <p style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '0.25rem' }}>
+              📍 Location set: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
+            </p>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
             <div className="form-group">
@@ -520,10 +512,8 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
             </p>
           </div>
 
-          <div className="form-group">
-            <label htmlFor="notes">Additional Notes</label>
+          <FormField id="notes" label="Additional Notes">
             <textarea
-              id="notes"
               name="notes"
               value={formData.notes}
               onChange={handleInputChange}
@@ -531,15 +521,14 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
               className="scroll-into-view"
               placeholder="Any additional details..."
               rows={2}
-              aria-label="Additional notes for activity"
             />
-          </div>
+          </FormField>
 
           <div className="form-group">
             <label>Opening Hours</label>
-            <button type="button" onClick={handleFetchHours} disabled={fetchingHours} style={{marginLeft: 8}} aria-label="Fetch opening hours from Google">
+            <Button type="button" onClick={handleFetchHours} disabled={fetchingHours} style={{marginLeft: 8}} aria-label="Fetch opening hours from Google" variant="neutral" size="sm">
               {fetchingHours ? 'Fetching...' : 'Auto-populate from Google'}
-            </button>
+            </Button>
             {fetchHoursError && <span className="error-text">{fetchHoursError}</span>}
             <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginTop: 8}}>
               {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((day, i) => (
@@ -555,32 +544,17 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
             </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }} className="sticky-actions">
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Cancel adding activity"
-              style={{
-                padding: '0.75rem 1.5rem',
-                background: '#6b7280',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer'
-              }}
-            >
-              Cancel
-            </button>
-            <button type="submit" className="submit-button" aria-label="Add activity">
-              Add Activity
-            </button>
-          </div>
           <div className="form-group">
-            <button type="button" onClick={handleAutoPopulate} disabled={autoPopulating} style={{marginBottom: 8}} aria-label="Auto-populate all fields from Google">
+            <Button type="button" onClick={handleAutoPopulate} disabled={autoPopulating} style={{marginBottom: 8}} aria-label="Auto-populate all fields from Google" variant="neutral" size="sm">
               {autoPopulating ? 'Auto-populating...' : 'Auto-populate All Fields from Google'}
-            </button>
+            </Button>
             {autoPopulateError && <span className="error-text">{autoPopulateError}</span>}
           </div>
+
+          <SafeAreaFooter>
+            <Button type="button" variant="neutral" onClick={onClose} aria-label="Cancel adding activity">Cancel</Button>
+            <Button type="submit" variant="primary" aria-label="Add activity">Add Activity</Button>
+          </SafeAreaFooter>
         </form>
       </div>
     </div>

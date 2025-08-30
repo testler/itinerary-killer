@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Button, FormField, SafeAreaFooter } from '../ui';
 
 type PasswordGateProps = {
   expectedPassword: string | undefined;
@@ -29,27 +30,27 @@ export default function PasswordGate({ expectedPassword, onAuthenticated }: Pass
   // Secret verification is handled globally in App; no gating here
 
   return (
-    <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 16 }}>
-      <div className="modal" style={{ maxWidth: 420, width: '100%', background: 'white', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.15)', padding: 20 }}>
+    <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100dvh', padding: 16 }}>
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="password-title" style={{ maxWidth: 420, width: '100%', background: 'white', borderRadius: 12, boxShadow: '0 10px 30px rgba(0,0,0,0.15)', padding: 20 }}>
         <div className="modal-header" style={{ marginBottom: 12 }}>
-          <h2 style={{ margin: 0 }}>Enter Password</h2>
+          <h2 id="password-title" style={{ margin: 0 }}>Enter Password</h2>
           <p style={{ margin: '8px 0 0 0', color: '#666' }}>This site is password protected.</p>
         </div>
         <div className="modal-body">
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-            placeholder="Password"
-            aria-label="Password"
-            style={{ width: '100%', padding: '10px 12px', borderRadius: 8, border: '1px solid #ddd' }}
-          />
-          {error && <div style={{ color: 'red', marginTop: 8 }}>{error}</div>}
+          <FormField id="password" label="Password" error={error || undefined}>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+              placeholder="Enter password"
+              inputMode="text"
+            />
+          </FormField>
         </div>
-        <div className="modal-footer" style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}>
-          <button onClick={submit}>Unlock</button>
-        </div>
+        <SafeAreaFooter>
+          <Button onClick={submit} variant="primary">Unlock</Button>
+        </SafeAreaFooter>
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Button, SafeAreaFooter } from '../ui';
 import { ItineraryItem } from '../types';
 
 type ImportJsonModalProps = {
@@ -156,10 +157,10 @@ export default function ImportJsonModal({ onClose, onImport }: ImportJsonModalPr
 
   return (
     <div className="modal-backdrop">
-      <div className="modal">
+      <div className="modal" role="dialog" aria-modal="true" aria-labelledby="import-json-title">
         <div className="modal-header">
-          <h2>Import Activities (JSON)</h2>
-          <button className="close-button" onClick={onClose}>×</button>
+          <h2 id="import-json-title">Import Activities (JSON)</h2>
+          <Button className="close-button" variant="ghost" aria-label="Close" onClick={onClose}>×</Button>
         </div>
         <div className="modal-body">
           <div style={{ marginBottom: 12 }}>
@@ -172,18 +173,7 @@ export default function ImportJsonModal({ onClose, onImport }: ImportJsonModalPr
                   if (f) void handleFile(f);
                 }}
               />
-              <button 
-                onClick={downloadTemplate}
-                style={{ 
-                  padding: '6px 12px', 
-                  backgroundColor: '#f0f0f0', 
-                  border: '1px solid #ccc', 
-                  borderRadius: '4px',
-                  cursor: 'pointer'
-                }}
-              >
-                📥 Download Template
-              </button>
+              <Button onClick={downloadTemplate} variant="neutral" size="sm">📥 Download Template</Button>
             </div>
             {fileName && <span style={{ marginLeft: 8 }}>{fileName}</span>}
           </div>
@@ -195,7 +185,7 @@ export default function ImportJsonModal({ onClose, onImport }: ImportJsonModalPr
             style={{ width: '100%', fontFamily: 'monospace' }}
           />
           <div style={{ marginTop: 8 }}>
-            <button onClick={handleParse}>Validate</button>
+            <Button onClick={handleParse} variant="primary" size="sm">Validate</Button>
           </div>
           {error && (
             <div className="error" style={{ marginTop: 8, color: 'red' }}>{error}</div>
@@ -217,10 +207,10 @@ export default function ImportJsonModal({ onClose, onImport }: ImportJsonModalPr
             </div>
           )}
         </div>
-        <div className="modal-footer">
-          <button onClick={onClose}>Cancel</button>
-          <button onClick={handleImport} disabled={!parsed || !validItems.length}>Import {validItems.length ? `(${validItems.length})` : ''}</button>
-        </div>
+        <SafeAreaFooter>
+          <Button variant="neutral" onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={handleImport} disabled={!parsed || !validItems.length}>Import {validItems.length ? `(${validItems.length})` : ''}</Button>
+        </SafeAreaFooter>
       </div>
     </div>
   );
