@@ -26,14 +26,19 @@ function cloneQueryParamsExcept(url, excludedKey) {
 }
 
 // Strict origin check. Missing Origin is treated as disallowed (except for OPTIONS).
-function isOriginAllowed(origin, allowedOrigin) {
+function getAllowedOrigins(env) {
+	const raw = (env.ALLOWED_ORIGINS || env.ALLOWED_ORIGIN || '').toString();
+	return raw.split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function isOriginAllowed(origin, allowedOrigins) {
 	if (!origin) return false;
-	return origin === allowedOrigin;
+	return allowedOrigins.includes(origin);
 }
 
 // Apply standard CORS headers
-function applyCorsHeaders(resp, allowedOrigin) {
-	resp.headers.set('Access-Control-Allow-Origin', allowedOrigin);
+function applyCorsHeaders(resp, originToEcho) {
+	resp.headers.set('Access-Control-Allow-Origin', originToEcho || '*');
 	resp.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
 	resp.headers.set('Access-Control-Allow-Headers', 'Content-Type');
 	resp.headers.set('Vary', 'Origin');
@@ -53,21 +58,21 @@ export default {
 	async fetch(request, env, ctx) {
 		const url = new URL(request.url);
 		const origin = request.headers.get('Origin');
-		const allowedOrigin = env.ALLOWED_ORIGIN;
+		const allowedOrigins = getAllowedOrigins(env);
 
 		// OPTIONS preflight: always return 204 with CORS headers
 		if (request.method === 'OPTIONS') {
-			return applyCorsHeaders(tagSecretHeader(new Response(null, { status: 204 }), env), allowedOrigin);
+			return applyCorsHeaders(tagSecretHeader(new Response(null, { status: 204 }), env), origin);
 		}
 
 		// Enforce strict CORS (non-OPTIONS must have an allowed Origin)
-		if (!isOriginAllowed(origin, allowedOrigin)) {
+		if (!isOriginAllowed(origin, allowedOrigins)) {
 			return applyCorsHeaders(
 				tagSecretHeader(new Response(JSON.stringify({ error: 'origin_not_allowed' }), {
 					status: 403,
 					headers: { 'Content-Type': 'application/json' }
 				}), env),
-				allowedOrigin
+				origin
 			);
 		}
 
@@ -82,7 +87,7 @@ export default {
 					status: 200,
 					headers: { 'Content-Type': 'application/json' }
 				}), env),
-				allowedOrigin
+				origin
 			);
 		}
 
@@ -93,7 +98,7 @@ export default {
 					status: 405,
 					headers: { 'Content-Type': 'application/json' }
 				}), env),
-				allowedOrigin
+				origin
 			);
 		}
 
@@ -105,7 +110,7 @@ export default {
 					status: 400,
 					headers: { 'Content-Type': 'application/json' }
 				}), env),
-				allowedOrigin
+				origin
 			);
 		}
 
@@ -116,7 +121,7 @@ export default {
 					status: 400,
 					headers: { 'Content-Type': 'application/json' }
 				}), env),
-				allowedOrigin
+				origin
 			);
 		}
 
@@ -142,14 +147,14 @@ export default {
 				}
 			});
 
-			return applyCorsHeaders(tagSecretHeader(resp, env), allowedOrigin);
+			return applyCorsHeaders(tagSecretHeader(resp, env), origin);
 		} catch (err) {
 			return applyCorsHeaders(
 				tagSecretHeader(new Response(JSON.stringify({ error: 'proxy_failed' }), {
 					status: 500,
 					headers: { 'Content-Type': 'application/json' }
 				}), env),
-				allowedOrigin
+				origin
 			);
 		}
 	}
