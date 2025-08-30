@@ -56,7 +56,10 @@ function App() {
       return false;
     }
   });
-  const [sitePassword, setSitePassword] = useState<string | undefined>(() => (import.meta as ImportMeta).env?.VITE_SITE_PASSWORD as unknown as string | undefined);
+  const [sitePassword, setSitePassword] = useState<string | undefined>(() => {
+    const v = import.meta.env.VITE_SITE_PASSWORD as string | undefined;
+    return v && v.length > 0 ? v : undefined;
+  });
   
   // Loading state management
   const [isLoading, setIsLoading] = useState(true);
@@ -123,10 +126,10 @@ function App() {
     const loadPassword = async () => {
       if (sitePassword) return;
       // Try runtime-config, then env
-      let proxyUrl = (import.meta as ImportMeta).env?.VITE_GOOGLE_PROXY_URL as unknown as string | undefined;
+      let proxyUrl: string | undefined = import.meta.env.VITE_GOOGLE_PROXY_URL as string | undefined;
       if (!proxyUrl) {
         try {
-          const baseUrl = ((import.meta as ImportMeta).env as unknown as { BASE_URL?: string }).BASE_URL || '/';
+          const baseUrl: string = import.meta.env.BASE_URL || '/';
           const rc = await fetch(baseUrl + 'runtime-config.json', { cache: 'no-store' });
           if (rc.ok) {
             const json = await rc.json();
@@ -143,7 +146,7 @@ function App() {
         u.pathname = '/keys';
         const res = await fetch(u.toString(), { method: 'GET', mode: 'cors' });
         if (!res.ok) return;
-        const data: { SITE_PASSWORD?: string } = await res.json().catch(() => ({} as unknown as { SITE_PASSWORD?: string }));
+        const data: { SITE_PASSWORD?: string } = await res.json().catch(() => ({}) as { SITE_PASSWORD?: string });
         if (!aborted && data?.SITE_PASSWORD) {
           setSitePassword(data.SITE_PASSWORD as string);
           console.log('[secrets] Loaded SITE_PASSWORD from /keys');
