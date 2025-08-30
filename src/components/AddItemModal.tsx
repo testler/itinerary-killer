@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, Search } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { X, Search, MapPin, Clock, DollarSign, Tag, FileText, Star, Loader2 } from 'lucide-react';
 import { ItineraryItem, UserLocation } from '../types';
 import { fetchPlaceDetailsFromGoogle, getCoordinatesFromAddress, fetchPlaceAutocomplete, fetchPlaceDetailsByPlaceId } from '../utils/location';
 import { Button, FormField, SafeAreaFooter } from '../ui';
@@ -48,6 +48,7 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
   const [addressSuggestions, setAddressSuggestions] = useState<Array<{ description: string; place_id: string }>>([]);
   const [addressLoading, setAddressLoading] = useState(false);
   const [addressDebounceTimer, setAddressDebounceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   // Set default location to user's location if available
   useEffect(() => {
@@ -94,17 +95,17 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
   const handleAddressChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     handleInputChange(e);
     const value = e.target.value;
+    setShowSuggestions(true);
+    
     if (addressDebounceTimer) clearTimeout(addressDebounceTimer);
     if (!value.trim()) {
       setAddressSuggestions([]);
+      setShowSuggestions(false);
       return;
     }
+    
     const timer = setTimeout(async () => {
       try {
-        if (isSlowConnection()) {
-          setAddressSuggestions([]);
-          return;
-        }
         setAddressLoading(true);
         const results = await fetchPlaceAutocomplete(value);
         setAddressSuggestions(results);
@@ -117,47 +118,66 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
     setAddressDebounceTimer(timer);
   };
 
-  const handleSelectSuggestion = async (s: { description: string; place_id: string }) => {
+  const handleSelectSuggestion = async (suggestion: { description: string; place_id: string }) => {
     try {
-      if (isSlowConnection()) return; // avoid fetching on slow networks
       setAddressLoading(true);
-      const place = await fetchPlaceDetailsByPlaceId(s.place_id);
-      // Populate fields
-      const newTitle = place.name || formData.title;
-      const newAddress = place.formatted_address || s.description;
-      let newLocation = location;
-      if (place.geometry && place.geometry.location) {
-        newLocation = {
+      setShowSuggestions(false);
+      setFormData(prev => ({ ...prev, address: suggestion.description }));
+      
+      const place = await fetchPlaceDetailsByPlaceId(suggestion.place_id);
+      
+      // Auto-populate fields from Google Places data
+      if (place.name) {
+        setFormData(prev => ({ ...prev, title: place.name }));
+      }
+      
+      if (place.formatted_address) {
+        setFormData(prev => ({ ...prev, address: place.formatted_address }));
+      }
+      
+      if (place.geometry?.location) {
+        setLocation({
           lat: place.geometry.location.lat,
           lng: place.geometry.location.lng
-        };
+        });
       }
-      let newDescription = formData.description;
-      if (place.editorial_summary && place.editorial_summary.overview) {
-        newDescription = place.editorial_summary.overview;
+      
+      // Auto-populate description from Google data
+      let description = '';
+      if (place.editorial_summary?.overview) {
+        description = place.editorial_summary.overview;
       } else if (place.types && place.types.length) {
-        newDescription = place.types.map((t: string) => t.replace(/_/g, ' ')).join(', ');
+        description = place.types
+          .map((type: string) => type.replace(/_/g, ' '))
+          .join(', ');
       }
-      type OpeningPeriod = { open: { day: number; time: string }; close?: { time?: string } };
-      const newOpeningHours: Record<number, { open: string; close: string } | null> = {};
-      const periods = (place.opening_hours && Array.isArray(place.opening_hours.periods)
-        ? (place.opening_hours.periods as OpeningPeriod[])
-        : ([] as OpeningPeriod[]));
-      for (let i = 0; i < 7; i++) {
-        const period = periods.find(p => p.open.day === i);
-        if (period) {
-          newOpeningHours[i] = {
-            open: period.open.time.replace(/(\d{2})(\d{2})/, '$1:$2'),
-            close: period.close?.time ? period.close.time.replace(/(\d{2})(\d{2})/, '$1:$2') : '',
-          };
-        } else {
-          newOpeningHours[i] = null;
+      
+      if (description) {
+        setFormData(prev => ({ ...prev, description }));
+      }
+      
+      // Auto-populate opening hours if available
+      if (place.opening_hours?.periods) {
+        const newHours: Record<number, { open: string; close: string } | null> = {};
+        const periods = place.opening_hours.periods;
+        
+        for (let i = 0; i < 7; i++) {
+          const period = periods.find((p: any) => p.open.day === i);
+          if (period) {
+            newHours[i] = {
+              open: period.open.time.replace(/(\d{2})(\d{2})/, '$1:$2'),
+              close: period.close?.time ? period.close.time.replace(/(\d{2})(\d{2})/, '$1:$2') : '',
+            };
+          } else {
+            newHours[i] = null;
+          }
         }
+        setOpeningHours(newHours);
       }
-      setFormData(prev => ({ ...prev, title: newTitle, address: newAddress, description: newDescription }));
-      setLocation(newLocation);
-      setOpeningHours(newOpeningHours);
+      
       setAddressSuggestions([]);
+    } catch (error) {
+      console.error('Error fetching place details:', error);
     } finally {
       setAddressLoading(false);
     }
@@ -219,24 +239,55 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
     onAdd(newItem);
   };
 
-  // Fetch opening hours from Google Places API
-  const handleFetchHours = async () => {
-    setFetchingHours(true);
-    setFetchHoursError(null);
+  const handleAutoPopulate = async () => {
+    if (!formData.title.trim() && !formData.address.trim()) {
+      setAutoPopulateError('Please enter at least a title or address first.');
+      return;
+    }
+
+    setAutoPopulating(true);
+    setAutoPopulateError(null);
+    
     try {
-      const { title, address } = formData;
-      if (!title.trim() || !address.trim()) {
-        setFetchHoursError('Please enter both a title and address first.');
-        setFetchingHours(false);
-        return;
+      const place = await fetchPlaceDetailsFromGoogle(formData.title, formData.address);
+      
+      // Auto-populate all available fields
+      if (place.name) {
+        setFormData(prev => ({ ...prev, title: place.name }));
       }
-      const place = await fetchPlaceDetailsFromGoogle(title, address);
-      if (place.opening_hours && place.opening_hours.periods) {
-        // Google returns periods as array of {open: {day, time}, close: {day, time}}
-        type OpeningPeriod = { open: { day: number; time: string }; close?: { time?: string } };
+      
+      if (place.formatted_address) {
+        setFormData(prev => ({ ...prev, address: place.formatted_address }));
+      }
+      
+      if (place.geometry?.location) {
+        setLocation({
+          lat: place.geometry.location.lat,
+          lng: place.geometry.location.lng
+        });
+      }
+      
+      // Auto-populate description
+      let description = '';
+      if (place.editorial_summary?.overview) {
+        description = place.editorial_summary.overview;
+      } else if (place.types && place.types.length) {
+        description = place.types
+          .map((type: string) => type.replace(/_/g, ' '))
+          .join(', ');
+      }
+      
+      if (description) {
+        setFormData(prev => ({ ...prev, description }));
+      }
+      
+      // Auto-populate opening hours
+      if (place.opening_hours?.periods) {
         const newHours: Record<number, { open: string; close: string } | null> = {};
+        const periods = place.opening_hours.periods;
+        
         for (let i = 0; i < 7; i++) {
-          const period = (place.opening_hours.periods as OpeningPeriod[]).find((p: OpeningPeriod) => p.open.day === i);
+          const period = periods.find((p: any) => p.open.day === i);
           if (period) {
             newHours[i] = {
               open: period.open.time.replace(/(\d{2})(\d{2})/, '$1:$2'),
@@ -247,191 +298,151 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
           }
         }
         setOpeningHours(newHours);
-      } else {
-        setFetchHoursError('No opening hours found for this place.');
       }
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : String(e);
-      setFetchHoursError('Failed to fetch hours: ' + message);
-    } finally {
-      setFetchingHours(false);
-    }
-  };
-
-  // Fully auto-populate all fields using Google Places API
-  const handleAutoPopulate = async () => {
-    setAutoPopulating(true);
-    setAutoPopulateError(null);
-    try {
-      const { title, address } = formData;
-      if (!title.trim() && !address.trim()) {
-        setAutoPopulateError('Please enter at least a title or address.');
-        setAutoPopulating(false);
-        return;
-      }
-      // Use whichever is filled, or both
-      const place = await fetchPlaceDetailsFromGoogle(title, address);
-      // Title
-      const newTitle = place.name || formData.title;
-      // Address
-      const newAddress = place.formatted_address || formData.address;
-      // Description (use Google editorial_summary or types if available)
-      let newDescription = formData.description;
-      if (place.editorial_summary && place.editorial_summary.overview) {
-        newDescription = place.editorial_summary.overview;
-      } else if (place.types && place.types.length) {
-        newDescription = place.types.map((t: string) => t.replace(/_/g, ' ')).join(', ');
-      }
-      // Location
-      let newLocation = location;
-      if (place.geometry && place.geometry.location) {
-        newLocation = {
-          lat: place.geometry.location.lat,
-          lng: place.geometry.location.lng
-        };
-      } else if (newAddress && !location) {
-        // fallback: geocode address
-        const coords = await getCoordinatesFromAddress(newAddress);
-        if (coords) newLocation = coords;
-      }
-      // Opening hours
-      type OpeningPeriod = { open: { day: number; time: string }; close?: { time?: string } };
-      const newOpeningHours: Record<number, { open: string; close: string } | null> = {};
-      const periods = (place.opening_hours && Array.isArray(place.opening_hours.periods)
-        ? (place.opening_hours.periods as OpeningPeriod[])
-        : ([] as OpeningPeriod[]));
-      for (let i = 0; i < 7; i++) {
-        const period = periods.find(p => p.open.day === i);
-        if (period) {
-          newOpeningHours[i] = {
-            open: period.open.time.replace(/(\d{2})(\d{2})/, '$1:$2'),
-            close: period.close?.time ? period.close.time.replace(/(\d{2})(\d{2})/, '$1:$2') : '',
-          };
-        } else {
-          newOpeningHours[i] = null;
-        }
-      }
-      setFormData(prev => ({
-        ...prev,
-        title: newTitle,
-        address: newAddress,
-        description: newDescription,
-      }));
-      setLocation(newLocation);
-      setOpeningHours(newOpeningHours);
-    } catch (e: unknown) {
-      const message = e instanceof Error ? e.message : String(e);
-      setAutoPopulateError('Failed to auto-populate: ' + message);
+      
+    } catch (error) {
+      setAutoPopulateError('Failed to auto-populate. Please check your internet connection and try again.');
     } finally {
       setAutoPopulating(false);
     }
   };
 
-  const isSlowConnection = () => {
-    const nav = navigator as Navigator & { connection?: { effectiveType?: string } };
-    const type = nav.connection?.effectiveType;
-    return type === '2g' || type === 'slow-2g' || type === '3g';
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'high': return 'text-red-600 bg-red-50 border-red-200';
+      case 'medium': return 'text-yellow-600 bg-yellow-50 border-yellow-200';
+      case 'low': return 'text-green-600 bg-green-50 border-green-200';
+      default: return 'text-gray-600 bg-gray-50 border-gray-200';
+    }
+  };
+
+  const getPriorityIcon = (priority: string) => {
+    switch (priority) {
+      case 'high': return '🔴';
+      case 'medium': return '🟡';
+      case 'low': return '🟢';
+      default: return '⚪';
+    }
   };
 
   return (
-    <div className="modal" onClick={onClose}>
-      <div className="modal-content" role="dialog" aria-modal="true" aria-labelledby="add-activity-title" onClick={e => e.stopPropagation()}>
+    <div className="modal-overlay">
+      <div className="modal-content modern-modal">
         <div className="modal-header">
-          <h2 id="add-activity-title">Add New Activity</h2>
-          <Button className="close-button" variant="ghost" aria-label="Close" onClick={onClose}>
+          <h2>🗺️ Add New Activity</h2>
+          <button 
+            onClick={onClose}
+            className="close-button"
+            aria-label="Close modal"
+          >
             <X size={24} />
-          </Button>
+          </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} className="modern-form">
+          {/* Title Field */}
           <div className="form-group">
-            <label htmlFor="title">Title *</label>
+            <label htmlFor="title" className="form-label">
+              <Star size={16} className="label-icon" />
+              Activity Title *
+            </label>
             <input
               type="text"
               id="title"
               name="title"
               value={formData.title}
               onChange={handleInputChange}
-              onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-              className={`scroll-into-view ${errors.title ? 'error' : ''}`}
-              placeholder="e.g., Visit Disney World"
+              className={`form-input ${errors.title ? 'error' : ''}`}
+              placeholder="Enter activity name..."
               aria-label="Activity title"
             />
             {errors.title && <span className="error-text">{errors.title}</span>}
           </div>
 
+          {/* Address Field with Google Places Autocomplete */}
           <div className="form-group">
-            <label htmlFor="description">Description *</label>
+            <label htmlFor="address" className="form-label">
+              <MapPin size={16} className="label-icon" />
+              Location Address *
+            </label>
+            <div className="address-input-container">
+              <input
+                type="text"
+                id="address"
+                name="address"
+                value={formData.address}
+                onChange={handleAddressChange}
+                className={`form-input ${errors.address ? 'error' : ''}`}
+                placeholder="Start typing to search locations..."
+                aria-label="Location address"
+                autoComplete="off"
+              />
+              {addressLoading && (
+                <div className="address-loading">
+                  <Loader2 size={16} className="animate-spin" />
+                </div>
+              )}
+            </div>
+            
+            {/* Address Suggestions Dropdown */}
+            {showSuggestions && addressSuggestions.length > 0 && (
+              <div className="address-suggestions">
+                {addressSuggestions.map(suggestion => (
+                  <button
+                    key={suggestion.place_id}
+                    type="button"
+                    className="suggestion-item"
+                    onClick={() => handleSelectSuggestion(suggestion)}
+                  >
+                    <MapPin size={14} />
+                    <span>{suggestion.description}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            
+            {errors.address && <span className="error-text">{errors.address}</span>}
+            
+            {location && (
+              <div className="location-confirmation">
+                <MapPin size={14} />
+                <span>📍 Location confirmed: {location.lat.toFixed(4)}, {location.lng.toFixed(4)}</span>
+              </div>
+            )}
+          </div>
+
+          {/* Description Field */}
+          <div className="form-group">
+            <label htmlFor="description" className="form-label">
+              <FileText size={16} className="label-icon" />
+              Description *
+            </label>
             <textarea
               id="description"
               name="description"
               value={formData.description}
               onChange={handleInputChange}
-              onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-              className={`scroll-into-view ${errors.description ? 'error' : ''}`}
-              placeholder="Describe what you want to do..."
+              className={`form-input ${errors.description ? 'error' : ''}`}
+              placeholder="Describe the activity..."
               rows={3}
               aria-label="Activity description"
             />
             {errors.description && <span className="error-text">{errors.description}</span>}
           </div>
 
-          <FormField id="address" label="Address" required error={errors.address}>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <input
-                type="text"
-                name="address"
-                value={formData.address}
-                onChange={handleAddressChange}
-                onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                className={`scroll-into-view`}
-                placeholder="Enter address or search for location"
-                style={{ flex: 1 }}
-                aria-autocomplete="list"
-                aria-expanded={addressSuggestions.length > 0}
-              />
-              <Button type="button" onClick={handleAddressSearch} disabled={searching} aria-label="Search for address" variant="primary" size="md">
-                {searching ? '...' : <Search size={16} />}
-              </Button>
-            </div>
-          </FormField>
-          {addressLoading && (
-            <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>Searching...</p>
-          )}
-          {addressSuggestions.length > 0 && (
-            <ul style={{
-              listStyle: 'none',
-              marginTop: '0.5rem',
-              border: '1px solid #e5e7eb',
-              borderRadius: 6,
-              maxHeight: 200,
-              overflowY: 'auto',
-              background: 'white'
-            }} role="listbox">
-              {addressSuggestions.map(s => (
-                <li key={s.place_id} style={{ padding: '0.5rem 0.75rem', cursor: 'pointer' }}
-                    onClick={() => handleSelectSuggestion(s)} role="option" aria-selected="false">
-                  {s.description}
-                </li>
-              ))}
-            </ul>
-          )}
-          {location && (
-            <p style={{ fontSize: '0.75rem', color: '#10b981', marginTop: '0.25rem' }}>
-              📍 Location set: {location.lat.toFixed(6)}, {location.lng.toFixed(6)}
-            </p>
-          )}
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          {/* Category and Priority Row */}
+          <div className="form-row">
             <div className="form-group">
-              <label htmlFor="category">Category</label>
+              <label htmlFor="category" className="form-label">
+                <Tag size={16} className="label-icon" />
+                Category
+              </label>
               <select
                 id="category"
                 name="category"
                 value={formData.category}
                 onChange={handleInputChange}
-                onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                className="scroll-into-view"
+                className="form-select"
                 aria-label="Activity category"
               >
                 {CATEGORIES.map(cat => (
@@ -441,14 +452,16 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
             </div>
 
             <div className="form-group">
-              <label htmlFor="priority">Priority</label>
+              <label htmlFor="priority" className="form-label">
+                <Star size={16} className="label-icon" />
+                Priority
+              </label>
               <select
                 id="priority"
                 name="priority"
                 value={formData.priority}
                 onChange={handleInputChange}
-                onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                className="scroll-into-view"
+                className="form-select"
                 aria-label="Activity priority"
               >
                 {PRIORITIES.map(priority => (
@@ -460,100 +473,161 @@ export default function AddItemModal({ onClose, onAdd, userLocation }: AddItemMo
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+          {/* Duration and Cost Row */}
+          <div className="form-row">
             <div className="form-group">
-              <label htmlFor="estimatedDuration">Duration (minutes) *</label>
+              <label htmlFor="estimatedDuration" className="form-label">
+                <Clock size={16} className="label-icon" />
+                Duration (minutes) *
+              </label>
               <input
                 type="number"
                 id="estimatedDuration"
                 name="estimatedDuration"
                 value={formData.estimatedDuration}
                 onChange={handleInputChange}
-                onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                className={`scroll-into-view ${errors.estimatedDuration ? 'error' : ''}`}
+                className={`form-input ${errors.estimatedDuration ? 'error' : ''}`}
                 min="1"
+                placeholder="60"
                 aria-label="Activity estimated duration"
               />
               {errors.estimatedDuration && <span className="error-text">{errors.estimatedDuration}</span>}
             </div>
 
             <div className="form-group">
-              <label htmlFor="cost">Estimated Cost ($)</label>
+              <label htmlFor="cost" className="form-label">
+                <DollarSign size={16} className="label-icon" />
+                Estimated Cost ($)
+              </label>
               <input
                 type="number"
                 id="cost"
                 name="cost"
                 value={formData.cost}
                 onChange={handleInputChange}
-                onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-                className={`scroll-into-view ${errors.cost ? 'error' : ''}`}
+                className={`form-input ${errors.cost ? 'error' : ''}`}
                 min="0"
                 step="0.01"
+                placeholder="0.00"
                 aria-label="Activity estimated cost"
               />
               {errors.cost && <span className="error-text">{errors.cost}</span>}
             </div>
           </div>
 
-          <div className="form-group">
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <input
-                type="checkbox"
-                id="isOpen"
-                name="isOpen"
-                checked={formData.isOpen}
-                onChange={(e) => setFormData(prev => ({ ...prev, isOpen: e.target.checked }))}
-                aria-label="Is activity currently open"
-              />
-              <span>🟢 This place is currently open</span>
-            </label>
-            <p style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
-              Uncheck if the place is closed or you want to mark it as unavailable
-            </p>
+          {/* Auto-populate Button */}
+          <div className="auto-populate-section">
+            <Button
+              type="button"
+              onClick={handleAutoPopulate}
+              disabled={autoPopulating}
+              variant="neutral"
+              size="sm"
+              className="auto-populate-btn"
+            >
+              {autoPopulating ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Auto-populating...
+                </>
+              ) : (
+                <>
+                  <Search size={16} />
+                  Auto-populate from Google
+                </>
+              )}
+            </Button>
+            {autoPopulateError && <span className="error-text">{autoPopulateError}</span>}
           </div>
 
-          <FormField id="notes" label="Additional Notes">
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleInputChange}
-              onFocus={(e) => e.currentTarget.scrollIntoView({ behavior: 'smooth', block: 'center' })}
-              className="scroll-into-view"
-              placeholder="Any additional details..."
-              rows={2}
-            />
-          </FormField>
-
+          {/* Opening Hours Section */}
           <div className="form-group">
-            <label>Opening Hours</label>
-            <Button type="button" onClick={handleFetchHours} disabled={fetchingHours} style={{marginLeft: 8}} aria-label="Fetch opening hours from Google" variant="neutral" size="sm">
-              {fetchingHours ? 'Fetching...' : 'Auto-populate from Google'}
-            </Button>
-            {fetchHoursError && <span className="error-text">{fetchHoursError}</span>}
-            <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem', marginTop: 8}}>
-              {['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'].map((day, i) => (
-                <div key={day} style={{display: 'flex', flexDirection: 'column', alignItems: 'flex-start'}}>
-                  <span style={{fontWeight: 500}}>{day}</span>
-                  <div style={{display: 'flex', gap: 4, alignItems: 'center'}}>
-                    <input type="time" value={openingHours[i]?.open || ''} onChange={e => setOpeningHours(h => ({...h, [i]: {...(h[i]||{}), open: e.target.value}}))} aria-label={`Open time for ${day}`} />
-                    <span>-</span>
-                    <input type="time" value={openingHours[i]?.close || ''} onChange={e => setOpeningHours(h => ({...h, [i]: {...(h[i]||{}), close: e.target.value}}))} aria-label={`Close time for ${day}`} />
+            <label className="form-label">
+              <Clock size={16} className="label-icon" />
+              Opening Hours
+            </label>
+            <div className="opening-hours-grid">
+              {['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((day, i) => (
+                <div key={day} className="day-row">
+                  <span className="day-label">{day.slice(0, 3)}</span>
+                  <div className="time-inputs">
+                    <input
+                      type="time"
+                      value={openingHours[i]?.open || ''}
+                      onChange={e => setOpeningHours(h => ({...h, [i]: {...(h[i]||{}), open: e.target.value}}))}
+                      className="time-input"
+                      aria-label={`Open time for ${day}`}
+                    />
+                    <span className="time-separator">-</span>
+                    <input
+                      type="time"
+                      value={openingHours[i]?.close || ''}
+                      onChange={e => setOpeningHours(h => ({...h, [i]: {...(h[i]||{}), close: e.target.value}}))}
+                      className="time-input"
+                      aria-label={`Close time for ${day}`}
+                    />
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
+          {/* Open/Closed Status */}
           <div className="form-group">
-            <Button type="button" onClick={handleAutoPopulate} disabled={autoPopulating} style={{marginBottom: 8}} aria-label="Auto-populate all fields from Google" variant="neutral" size="sm">
-              {autoPopulating ? 'Auto-populating...' : 'Auto-populate All Fields from Google'}
-            </Button>
-            {autoPopulateError && <span className="error-text">{autoPopulateError}</span>}
+            <label className="form-label checkbox-label">
+              <input
+                type="checkbox"
+                id="isOpen"
+                name="isOpen"
+                checked={formData.isOpen}
+                onChange={(e) => setFormData(prev => ({ ...prev, isOpen: e.target.checked }))}
+                className="form-checkbox"
+                aria-label="Is activity currently open"
+              />
+              <span className="checkbox-text">
+                🟢 This place is currently open
+              </span>
+            </label>
+            <p className="help-text">
+              Uncheck if the place is closed or you want to mark it as unavailable
+            </p>
           </div>
 
+          {/* Additional Notes */}
+          <div className="form-group">
+            <label htmlFor="notes" className="form-label">
+              <FileText size={16} className="label-icon" />
+              Additional Notes
+            </label>
+            <textarea
+              id="notes"
+              name="notes"
+              value={formData.notes}
+              onChange={handleInputChange}
+              className="form-input"
+              placeholder="Any additional details, tips, or special requirements..."
+              rows={2}
+              aria-label="Additional notes"
+            />
+          </div>
+
+          {/* Form Actions */}
           <SafeAreaFooter>
-            <Button type="button" variant="neutral" onClick={onClose} aria-label="Cancel adding activity">Cancel</Button>
-            <Button type="submit" variant="primary" aria-label="Add activity">Add Activity</Button>
+            <Button 
+              type="button" 
+              variant="neutral" 
+              onClick={onClose}
+              className="cancel-btn"
+            >
+              Cancel
+            </Button>
+            <Button 
+              type="submit" 
+              variant="primary"
+              className="submit-btn"
+            >
+              Add Activity
+            </Button>
           </SafeAreaFooter>
         </form>
       </div>

@@ -101,7 +101,7 @@ export async function fetchPlaceDetailsFromGoogle(name: string, address: string)
   const detailsUrl = `${proxyBase}?endpoint=${encodeURIComponent(
     detailsEndpoint
   )}&place_id=${encodeURIComponent(placeId)}&fields=${encodeURIComponent(
-    'name,opening_hours,formatted_address'
+    'name,opening_hours,formatted_address,geometry/location,types,editorial_summary,rating,user_ratings_total,price_level,business_status'
   )}`;
   const detailsResp = await fetch(detailsUrl);
   const detailsData = await detailsResp.json();
@@ -109,6 +109,95 @@ export async function fetchPlaceDetailsFromGoogle(name: string, address: string)
     throw new Error('Failed to fetch place details');
   }
   return detailsData.result;
+}
+
+// Get nearby places using Google Places API
+export async function getNearbyPlaces(
+  lat: number,
+  lng: number,
+  radius: number = 5000,
+  type?: string
+): Promise<Array<{
+  place_id: string;
+  name: string;
+  formatted_address: string;
+  rating?: number;
+  types: string[];
+  geometry: { location: { lat: number; lng: number } };
+}>> {
+  const proxyBase = (import.meta as any).env?.VITE_GOOGLE_PROXY_BASE || '';
+  const endpoint = '/maps/api/place/nearbysearch/json';
+  
+  let url = `${proxyBase}?endpoint=${encodeURIComponent(endpoint)}&location=${lat},${lng}&radius=${radius}`;
+  
+  if (type) {
+    url += `&type=${encodeURIComponent(type)}`;
+  }
+  
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      throw new Error('Failed to fetch nearby places');
+    }
+    
+    return (data.results || []).map((place: any) => ({
+      place_id: place.place_id,
+      name: place.name,
+      formatted_address: place.formatted_address,
+      rating: place.rating,
+      types: place.types || [],
+      geometry: place.geometry
+    }));
+  } catch (error) {
+    console.error('Error fetching nearby places:', error);
+    return [];
+  }
+}
+
+// Enhanced place search with better filtering
+export async function searchPlaces(
+  query: string,
+  location?: { lat: number; lng: number },
+  radius: number = 50000
+): Promise<Array<{
+  place_id: string;
+  name: string;
+  formatted_address: string;
+  rating?: number;
+  types: string[];
+  geometry: { location: { lat: number; lng: number } };
+}>> {
+  const proxyBase = (import.meta as any).env?.VITE_GOOGLE_PROXY_BASE || '';
+  const endpoint = '/maps/api/place/textsearch/json';
+  
+  let url = `${proxyBase}?endpoint=${encodeURIComponent(endpoint)}&query=${encodeURIComponent(query)}`;
+  
+  if (location) {
+    url += `&location=${location.lat},${location.lng}&radius=${radius}`;
+  }
+  
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    
+    if (data.status !== 'OK' && data.status !== 'ZERO_RESULTS') {
+      throw new Error('Failed to search places');
+    }
+    
+    return (data.results || []).map((place: any) => ({
+      place_id: place.place_id,
+      name: place.name,
+      formatted_address: place.formatted_address,
+      rating: place.rating,
+      types: place.types || [],
+      geometry: place.geometry
+    }));
+  } catch (error) {
+    console.error('Error searching places:', error);
+    return [];
+  }
 }
 
 export async function fetchPlaceAutocomplete(input: string): Promise<Array<{ description: string; place_id: string }>> {
@@ -132,7 +221,25 @@ export async function fetchPlaceDetailsByPlaceId(placeId: string): Promise<any> 
     'geometry/location',
     'opening_hours',
     'types',
-    'editorial_summary'
+    'editorial_summary',
+    'rating',
+    'user_ratings_total',
+    'price_level',
+    'website',
+    'formatted_phone_number',
+    'international_phone_number',
+    'url',
+    'photos',
+    'reviews',
+    'business_status',
+    'wheelchair_accessible_entrance',
+    'delivery',
+    'dine_in',
+    'takeout',
+    'reservable',
+    'serves_beer',
+    'serves_wine',
+    'outdoor_seating'
   ].join(',');
   const detailsUrl = `${proxyBase}?endpoint=${encodeURIComponent(endpoint)}&place_id=${encodeURIComponent(placeId)}&fields=${encodeURIComponent(fields)}`;
   const detailsResp = await fetch(detailsUrl);
