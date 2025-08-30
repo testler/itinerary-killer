@@ -56,6 +56,9 @@ export async function getCoordinatesFromAddress(
   }
 }
 
+// Alias for backwards compatibility
+export const geocodeAddress = getCoordinatesFromAddress;
+
 // Check if a location is within Orlando area
 export function isInOrlandoArea(lat: number, lng: number): boolean {
   // Orlando area bounds (approximate)
