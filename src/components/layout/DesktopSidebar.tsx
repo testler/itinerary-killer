@@ -1,5 +1,5 @@
 import React from 'react';
-import { MapPin, List, Filter, Settings, Plus, Share } from 'lucide-react';
+import { MapPin, List, Filter, Settings, Plus, Upload, Trash2 } from 'lucide-react';
 import { Button } from '../ui';
 
 interface DesktopSidebarProps {
@@ -7,7 +7,8 @@ interface DesktopSidebarProps {
   onViewChange: (view: 'map' | 'list') => void;
   onFilterToggle: () => void;
   onAddActivity: () => void;
-  onShare: () => void;
+  onImportJson: () => void;
+  onDeleteDuplicates: () => void;
   showFilters: boolean;
   totalActivities: number;
   children: React.ReactNode;
@@ -18,7 +19,8 @@ export function DesktopSidebar({
   onViewChange,
   onFilterToggle,
   onAddActivity,
-  onShare,
+  onImportJson,
+  onDeleteDuplicates,
   showFilters,
   totalActivities,
   children
@@ -49,10 +51,20 @@ export function DesktopSidebar({
           </Button>
           <Button
             variant="secondary"
-            onClick={onShare}
-            icon={Share}
+            onClick={onImportJson}
+            icon={Upload}
             size="sm"
             className="px-3"
+            title="Import JSON"
+          >
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={onDeleteDuplicates}
+            icon={Trash2}
+            size="sm"
+            className="px-3"
+            title="Delete Duplicates"
           >
           </Button>
         </div>

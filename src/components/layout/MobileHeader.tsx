@@ -1,11 +1,12 @@
 import React from 'react';
-import { Menu, MapPin, Plus, Share, Settings } from 'lucide-react';
+import { Menu, MapPin, Plus, Upload, Trash2 } from 'lucide-react';
 import { Button } from '../ui';
 
 interface MobileHeaderProps {
   onMenuToggle: () => void;
   onAddActivity: () => void;
-  onShare: () => void;
+  onImportJson: () => void;
+  onDeleteDuplicates: () => void;
   isMenuOpen: boolean;
   totalActivities: number;
 }
@@ -13,7 +14,8 @@ interface MobileHeaderProps {
 export function MobileHeader({ 
   onMenuToggle, 
   onAddActivity, 
-  onShare,
+  onImportJson,
+  onDeleteDuplicates,
   isMenuOpen,
   totalActivities 
 }: MobileHeaderProps) {
@@ -55,11 +57,21 @@ export function MobileHeader({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onShare}
+            onClick={onImportJson}
             className="p-2 rounded-full"
-            aria-label="Share itinerary"
+            aria-label="Import JSON"
           >
-            <Share size={20} />
+            <Upload size={20} />
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onDeleteDuplicates}
+            className="p-2 rounded-full"
+            aria-label="Delete duplicates"
+          >
+            <Trash2 size={20} />
           </Button>
           
           <Button

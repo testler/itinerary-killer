@@ -146,6 +146,76 @@ function App() {
     setShowAddModal(false);
   };
 
+  const handleImportJson = () => {
+    setShowImportModal(true);
+  };
+
+  const handleImportActivities = async (importedItems: ItineraryItem[]) => {
+    try {
+      await addItems(importedItems);
+      setShowImportModal(false);
+      alert(`Successfully imported ${importedItems.length} activities!`);
+    } catch (error) {
+      console.error('Failed to import activities:', error);
+      alert('Failed to import activities. Please try again.');
+    }
+  };
+
+  const handleDeleteDuplicates = async () => {
+    if (items.length === 0) {
+      alert('No activities to check for duplicates.');
+      return;
+    }
+
+    const duplicateGroups: { [title: string]: ItineraryItem[] } = {};
+    
+    // Group items by title (case-insensitive)
+    items.forEach(item => {
+      const normalizedTitle = item.title.toLowerCase().trim();
+      if (!duplicateGroups[normalizedTitle]) {
+        duplicateGroups[normalizedTitle] = [];
+      }
+      duplicateGroups[normalizedTitle].push(item);
+    });
+
+    // Find groups with duplicates
+    const duplicateEntries = Object.entries(duplicateGroups).filter(([_, group]) => group.length > 1);
+    
+    if (duplicateEntries.length === 0) {
+      alert('No duplicate activities found.');
+      return;
+    }
+
+    // Count total duplicates to be removed
+    const totalDuplicates = duplicateEntries.reduce((sum, [_, group]) => sum + (group.length - 1), 0);
+    
+    const confirmMessage = `Found ${duplicateEntries.length} groups of duplicates (${totalDuplicates} duplicates to remove):\n\n` +
+      duplicateEntries.map(([title, group]) => `• "${title}" (${group.length} copies)`).join('\n') +
+      '\n\nThis will keep the oldest activity from each group and delete the rest. Continue?';
+
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      // For each duplicate group, keep the oldest (first created) and delete the rest
+      for (const [_, group] of duplicateEntries) {
+        // Sort by creation date to keep the oldest
+        const sorted = group.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        const toDelete = sorted.slice(1); // Keep first (oldest), delete rest
+        
+        for (const item of toDelete) {
+          await deleteItem(item.id);
+        }
+      }
+
+      alert(`Successfully removed ${totalDuplicates} duplicate activities.`);
+    } catch (error) {
+      console.error('Error deleting duplicates:', error);
+      alert('Failed to delete some duplicates. Please try again.');
+    }
+  };
+
   const handleToggleComplete = (id: string, completed: boolean) => {
     const activity = items.find(item => item.id === id);
     if (activity) {
@@ -208,7 +278,8 @@ function App() {
         <MobileHeader
           onMenuToggle={() => setShowMobileNav(true)}
           onAddActivity={() => setShowAddModal(true)}
-          onShare={() => {/* Share functionality placeholder */}}
+          onImportJson={handleImportJson}
+          onDeleteDuplicates={handleDeleteDuplicates}
           isMenuOpen={showMobileNav}
           totalActivities={items.length}
         />
@@ -222,7 +293,8 @@ function App() {
           onViewChange={setCurrentView}
           onFilterToggle={() => setShowFilters(!showFilters)}
           onAddActivity={() => setShowAddModal(true)}
-          onShare={() => {/* Share functionality placeholder */}}
+          onImportJson={handleImportJson}
+          onDeleteDuplicates={handleDeleteDuplicates}
           showFilters={showFilters}
           totalActivities={items.length}
         >
@@ -390,10 +462,7 @@ function App() {
         <Suspense fallback={<div>Loading...</div>}>
           <ImportJsonModal
             onClose={() => setShowImportModal(false)}
-            onImport={async (newItems) => {
-              await addItems(newItems);
-              setShowImportModal(false);
-            }}
+            onImport={handleImportActivities}
           />
         </Suspense>
       )}

@@ -1,4 +1,5 @@
 /* Modern Itinerary Killer Styles - Mobile First */
+@import 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
 @import './styles/design-system.css';
 @import './styles/utilities.css';
 
