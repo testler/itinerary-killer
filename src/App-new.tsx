@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Suspense, lazy } from 'react';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { Icon } from 'leaflet';
 import { ItineraryItem, UserLocation } from './types';
 import { ModernPasswordGate } from './components/auth/ModernPasswordGate';
@@ -34,6 +34,25 @@ const userIcon = new Icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41]
 });
+
+// Map updater component to handle view changes and resizing
+function MapUpdater({ center, currentView }: { center: [number, number]; currentView: string }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    if (currentView === 'map') {
+      // Update map center
+      map.setView(center, map.getZoom());
+      
+      // Invalidate size to ensure proper rendering
+      setTimeout(() => {
+        map.invalidateSize();
+      }, 100);
+    }
+  }, [center, map, currentView]);
+  
+  return null;
+}
 
 function App() {
   // Auth state
@@ -256,11 +275,23 @@ function App() {
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
           {/* Map or List View */}
           <div className="flex-1 relative overflow-hidden">
-            {currentView === 'map' ? (
+                      {currentView === 'map' ? (
+            <div className="h-full w-full relative">
               <MapContainer
                 center={mapCenter}
                 zoom={13}
-                className="h-full w-full z-0"
+                className={`h-full w-full z-0 ${showMobileNav ? 'pointer-events-none' : ''}`}
+                style={{ 
+                  height: '100%', 
+                  width: '100%',
+                  pointerEvents: showMobileNav ? 'none' : 'auto'
+                }}
+                whenReady={() => {
+                  // Ensure map renders properly on mount
+                  setTimeout(() => {
+                    window.dispatchEvent(new Event('resize'));
+                  }, 100);
+                }}
               >
                 <TileLayer
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -308,7 +339,10 @@ function App() {
                     </Popup>
                   </Marker>
                 ))}
+                
+                <MapUpdater center={mapCenter} currentView={currentView} />
               </MapContainer>
+            </div>
             ) : (
               <div className="h-full overflow-y-auto scrollbar-thin lg:hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
                 <div className="p-4 pb-safe-bottom">

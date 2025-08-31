@@ -26,6 +26,22 @@ html, body {
   font-family: inherit;
   width: 100% !important;
   height: 100% !important;
+  z-index: 1 !important;
+}
+
+/* Ensure map container has proper height */
+.leaflet-container .leaflet-map-pane {
+  width: 100%;
+  height: 100%;
+}
+
+/* Touch target utility */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .leaflet-popup-content-wrapper {
