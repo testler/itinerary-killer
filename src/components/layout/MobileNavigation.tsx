@@ -30,7 +30,7 @@ export function MobileNavigation({
       />
       
       {/* Navigation Panel */}
-      <div className="fixed inset-y-0 left-0 w-80 max-w-[85vw] bg-white shadow-xl z-modal lg:hidden transform transition-transform duration-300">
+      <div className="fixed inset-y-0 left-0 w-72 max-w-[80vw] bg-white shadow-xl z-modal lg:hidden transform transition-transform duration-300">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 safe-top">
           <h2 className="text-lg font-semibold text-primary">Navigation</h2>

@@ -13,7 +13,7 @@ import { useGeolocationRefresh } from './hooks/useGeolocationRefresh';
 import { calculateDistance } from './utils/location';
 
 // Lazy load heavy components
-const AddItemModal = lazy(() => import('./components/AddItemModal'));
+const AddItemModal = lazy(() => import('./components/ModernAddItemModal'));
 const ImportJsonModal = lazy(() => import('./components/ImportJsonModal'));
 
 // Map icons
@@ -183,130 +183,61 @@ function App() {
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      {/* Desktop Sidebar */}
-      <DesktopSidebar
-        currentView={currentView}
-        onViewChange={setCurrentView}
-        onFilterToggle={() => setShowFilters(!showFilters)}
-        onAddActivity={() => setShowAddModal(true)}
-        onShare={() => {/* TODO: Implement share */}}
-        showFilters={showFilters}
-        totalActivities={items.length}
-      >
-        {/* Sidebar Content */}
-        <div className="flex flex-col h-full">
-          {/* Location Status */}
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-secondary">Location</span>
-              <LocationRefreshButton
-                onRefreshLocation={getUserLocation}
-                onRefreshAllActivities={handleRefreshAllActivities}
-                hasLocation={!!userLocation}
-                isLoading={locationLoading || refreshing}
-              />
-            </div>
-            
-            {locationError ? (
-              <div className="text-sm text-error bg-error-50 p-2 rounded-lg">
-                {locationError}
-              </div>
-            ) : userLocation ? (
-              <div className="text-sm text-success-600 bg-success-50 p-2 rounded-lg">
-                ✓ Location found (±{Math.round(userLocation.accuracy)}m)
-              </div>
-            ) : (
-              <div className="text-sm text-secondary bg-gray-100 p-2 rounded-lg">
-                Location not available
-              </div>
-            )}
-          </div>
+    <div className="mobile-vh flex flex-col bg-gray-50 overflow-hidden">
+      {/* Mobile Header */}
+      <div className="lg:hidden flex-shrink-0">
+        <MobileHeader
+          onMenuToggle={() => setShowMobileNav(true)}
+          onAddActivity={() => setShowAddModal(true)}
+          onShare={() => {/* Share functionality placeholder */}}
+          isMenuOpen={showMobileNav}
+          totalActivities={items.length}
+        />
+      </div>
 
-          {/* Activity List */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <ActivityGrid
-              activities={items}
-              onToggleComplete={handleToggleComplete}
-              onShowOnMap={handleShowOnMap}
-              onDelete={handleDelete}
-              userLocation={userLocation}
-              loading={loading}
-            />
-          </div>
-        </div>
-      </DesktopSidebar>
-
-      {/* Main Content */}
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Mobile Header */}
-        <div className="lg:hidden">
-          <MobileHeader
-            onMenuToggle={() => setShowMobileNav(true)}
-            onAddActivity={() => setShowAddModal(true)}
-            onShare={() => {/* TODO: Implement share */}}
-            isMenuOpen={showMobileNav}
-            totalActivities={items.length}
-          />
-        </div>
-
-        {/* Map or List View */}
-        <div className="flex-1 relative">
-          {currentView === 'map' ? (
-            <MapContainer
-              center={mapCenter}
-              zoom={13}
-              className="h-full w-full z-0"
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
+      {/* Main Layout */}
+      <div className="flex-1 flex overflow-hidden min-h-0">
+        {/* Desktop Sidebar */}
+        <DesktopSidebar
+          currentView={currentView}
+          onViewChange={setCurrentView}
+          onFilterToggle={() => setShowFilters(!showFilters)}
+          onAddActivity={() => setShowAddModal(true)}
+          onShare={() => {/* Share functionality placeholder */}}
+          showFilters={showFilters}
+          totalActivities={items.length}
+        >
+          {/* Sidebar Content */}
+          <div className="flex flex-col h-full">
+            {/* Location Status */}
+            <div className="p-4 border-b border-gray-200 flex-shrink-0">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-secondary">Location</span>
+                <LocationRefreshButton
+                  onRefreshLocation={getUserLocation}
+                  onRefreshAllActivities={handleRefreshAllActivities}
+                  hasLocation={!!userLocation}
+                  isLoading={locationLoading || refreshing}
+                />
+              </div>
               
-              {/* User location marker */}
-              {userLocation && (
-                <Marker
-                  position={[userLocation.lat, userLocation.lng]}
-                  icon={userIcon}
-                >
-                  <Popup>
-                    <div className="text-center">
-                      <h3 className="font-semibold">📍 You are here</h3>
-                      <p className="text-sm text-secondary">
-                        Accuracy: {Math.round(userLocation.accuracy)}m
-                      </p>
-                    </div>
-                  </Popup>
-                </Marker>
+              {locationError ? (
+                <div className="text-sm text-error bg-error-50 p-2 rounded-lg">
+                  {locationError}
+                </div>
+              ) : userLocation ? (
+                <div className="text-sm text-success-600 bg-success-50 p-2 rounded-lg">
+                  ✓ Location found (±{Math.round(userLocation.accuracy)}m)
+                </div>
+              ) : (
+                <div className="text-sm text-secondary bg-gray-100 p-2 rounded-lg">
+                  Location not available
+                </div>
               )}
+            </div>
 
-              {/* Activity markers */}
-              {items.map((activity) => (
-                <Marker
-                  key={activity.id}
-                  position={[activity.location.lat, activity.location.lng]}
-                  icon={customIcon}
-                >
-                  <Popup>
-                    <div className="max-w-xs">
-                      <h3 className="font-semibold mb-2">{activity.title}</h3>
-                      <p className="text-sm text-secondary mb-2">{activity.description}</p>
-                      <div className="space-y-1 text-sm">
-                        <div><strong>Category:</strong> {activity.category}</div>
-                        <div><strong>Priority:</strong> {activity.priority}</div>
-                        <div><strong>Duration:</strong> {activity.estimatedDuration} min</div>
-                        <div><strong>Cost:</strong> ${activity.cost}</div>
-                        {userLocation && (
-                          <div><strong>Distance:</strong> {getDistanceFromUser(activity)}</div>
-                        )}
-                      </div>
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-            </MapContainer>
-          ) : (
-            <div className="h-full overflow-y-auto lg:hidden">
+            {/* Activity List */}
+            <div className="flex-1 overflow-y-auto scrollbar-thin min-h-0">
               <div className="p-4">
                 <ActivityGrid
                   activities={items}
@@ -315,11 +246,85 @@ function App() {
                   onDelete={handleDelete}
                   userLocation={userLocation}
                   loading={loading}
-                  isCompact
                 />
               </div>
             </div>
-          )}
+          </div>
+        </DesktopSidebar>
+
+        {/* Main Content */}
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
+          {/* Map or List View */}
+          <div className="flex-1 relative overflow-hidden">
+            {currentView === 'map' ? (
+              <MapContainer
+                center={mapCenter}
+                zoom={13}
+                className="h-full w-full z-0"
+              >
+                <TileLayer
+                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                />
+                
+                {/* User location marker */}
+                {userLocation && (
+                  <Marker
+                    position={[userLocation.lat, userLocation.lng]}
+                    icon={userIcon}
+                  >
+                    <Popup>
+                      <div className="text-center">
+                        <h3 className="font-semibold">📍 You are here</h3>
+                        <p className="text-sm text-secondary">
+                          Accuracy: {Math.round(userLocation.accuracy)}m
+                        </p>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )}
+
+                {/* Activity markers */}
+                {items.map((activity) => (
+                  <Marker
+                    key={activity.id}
+                    position={[activity.location.lat, activity.location.lng]}
+                    icon={customIcon}
+                  >
+                    <Popup>
+                      <div className="max-w-xs">
+                        <h3 className="font-semibold mb-2">{activity.title}</h3>
+                        <p className="text-sm text-secondary mb-2">{activity.description}</p>
+                        <div className="space-y-1 text-sm">
+                          <div><strong>Category:</strong> {activity.category}</div>
+                          <div><strong>Priority:</strong> {activity.priority}</div>
+                          <div><strong>Duration:</strong> {activity.estimatedDuration} min</div>
+                          <div><strong>Cost:</strong> ${activity.cost}</div>
+                          {userLocation && (
+                            <div><strong>Distance:</strong> {getDistanceFromUser(activity)}</div>
+                          )}
+                        </div>
+                      </div>
+                    </Popup>
+                  </Marker>
+                ))}
+              </MapContainer>
+            ) : (
+              <div className="h-full overflow-y-auto scrollbar-thin lg:hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
+                <div className="p-4 pb-safe-bottom">
+                  <ActivityGrid
+                    activities={items}
+                    onToggleComplete={handleToggleComplete}
+                    onShowOnMap={handleShowOnMap}
+                    onDelete={handleDelete}
+                    userLocation={userLocation}
+                    loading={loading}
+                    isCompact
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

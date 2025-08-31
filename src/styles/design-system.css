@@ -542,15 +542,29 @@ body {
   padding-right: calc(var(--space-4) + var(--safe-right));
 }
 
-/* Mobile viewport fixes */
+/* iOS Safari viewport fixes */
 .mobile-vh {
   height: 100vh;
   height: 100dvh; /* Dynamic viewport height */
+  /* Fallback for older iOS versions */
+  height: -webkit-fill-available;
 }
 
 .mobile-min-vh {
   min-height: 100vh;
   min-height: 100dvh;
+  min-height: -webkit-fill-available;
+}
+
+/* Prevent rubber-band scrolling on iOS */
+.prevent-bounce {
+  overscroll-behavior: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Safe area utilities for iOS */
+.pb-safe-bottom {
+  padding-bottom: calc(var(--space-4) + var(--safe-bottom));
 }
 
 /* Responsive grid utilities */

@@ -2,9 +2,30 @@
 @import './styles/design-system.css';
 @import './styles/utilities.css';
 
+/* iOS Safari fixes */
+html, body {
+  height: 100vh;
+  height: 100dvh;
+  height: -webkit-fill-available;
+  overflow: hidden;
+  overscroll-behavior: none;
+  position: fixed;
+  width: 100%;
+}
+
+#root {
+  height: 100vh;
+  height: 100dvh;
+  height: -webkit-fill-available;
+  overflow: hidden;
+  width: 100%;
+}
+
 /* Leaflet CSS overrides for better mobile experience */
 .leaflet-container {
   font-family: inherit;
+  width: 100% !important;
+  height: 100% !important;
 }
 
 .leaflet-popup-content-wrapper {
