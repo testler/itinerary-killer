@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Map, NavigationControl, Marker, Popup } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import './MapView.css';
 import { ItineraryItem, UserLocation } from '../types';
 import { useMapTilerKey } from '../hooks/useMapTilerKey';
 import { RefreshCw, AlertCircle } from 'lucide-react';
@@ -21,26 +20,6 @@ interface MapViewProps {
   className?: string;
 }
 
-// Fallback OpenStreetMap style
-const FALLBACK_STYLE = {
-  version: 8,
-  sources: {
-    'osm': {
-      type: 'raster',
-      tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
-      tileSize: 256,
-      attribution: '© OpenStreetMap contributors'
-    }
-  },
-  layers: [
-    {
-      id: 'osm',
-      type: 'raster',
-      source: 'osm'
-    }
-  ]
-} as const;
-
 export function MapView({ 
   center, 
   zoom = 13, 
@@ -57,46 +36,25 @@ export function MapView({
   
   const { key: mapTilerKey, loading, error, retry } = useMapTilerKey();
   const [mapLoaded, setMapLoaded] = useState(false);
-  const [useMapTiler, setUseMapTiler] = useState(true);
 
   // Initialize map
   useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
-
-    // If MapTiler key fails, use fallback after 3 seconds
-    const fallbackTimer = setTimeout(() => {
-      if (loading || error) {
-        console.log('Using OpenStreetMap fallback');
-        setUseMapTiler(false);
-      }
-    }, 3000);
-
-    // Wait for MapTiler key or use fallback
-    if (useMapTiler && !mapTilerKey && !error) {
-      return () => clearTimeout(fallbackTimer);
-    }
+    if (!mapTilerKey || !mapContainerRef.current || mapRef.current) return;
 
     try {
-      const mapStyle = useMapTiler && mapTilerKey 
-        ? `https://api.maptiler.com/maps/streets/style.json?key=${mapTilerKey}`
-        : FALLBACK_STYLE;
-
-      console.log('Initializing map with style:', useMapTiler ? 'MapTiler' : 'OpenStreetMap');
-
       const map = new Map({
         container: mapContainerRef.current,
-        style: mapStyle,
+        style: `https://api.maptiler.com/maps/streets/style.json?key=${mapTilerKey}`,
         center: center,
         zoom: zoom,
-        attributionControl: true
+        attributionControl: false
       });
 
-      // Add navigation control
+      // Add attribution
       map.addControl(new NavigationControl(), 'top-right');
 
       // Handle map load
       map.on('load', () => {
-        console.log('Map loaded successfully');
         setMapLoaded(true);
       });
 
@@ -110,17 +68,11 @@ export function MapView({
       // Handle errors
       map.on('error', (e) => {
         console.error('MapLibre error:', e);
-        // If MapTiler fails, try fallback
-        if (useMapTiler && !error) {
-          console.log('MapTiler failed, switching to fallback');
-          setUseMapTiler(false);
-        }
       });
 
       mapRef.current = map;
 
       return () => {
-        clearTimeout(fallbackTimer);
         if (mapRef.current) {
           mapRef.current.remove();
           mapRef.current = null;
@@ -129,12 +81,8 @@ export function MapView({
       };
     } catch (error) {
       console.error('Failed to initialize map:', error);
-      if (useMapTiler) {
-        console.log('Switching to fallback due to initialization error');
-        setUseMapTiler(false);
-      }
     }
-  }, [mapTilerKey, error, useMapTiler]);
+  }, [mapTilerKey]);
 
   // Update map center and zoom
   useEffect(() => {
@@ -173,7 +121,6 @@ export function MapView({
         cursor: pointer;
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         border: 2px solid white;
-        z-index: 1000;
       `;
 
       const marker = new Marker({ element: el })
@@ -236,7 +183,6 @@ export function MapView({
         font-size: 12px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         border: 2px solid white;
-        z-index: 1000;
       `;
 
       const marker = new Marker({ element: el })
@@ -259,34 +205,32 @@ export function MapView({
     }
   }, [userLocation, mapLoaded]);
 
-  // Loading state (only show for MapTiler, not fallback)
-  if (useMapTiler && loading) {
+  // Loading state
+  if (loading) {
     return (
       <div className={`${className} bg-gray-100 animate-pulse flex items-center justify-center`}>
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-2"></div>
           <p className="text-sm text-gray-600">Loading map...</p>
-          <p className="text-xs text-gray-500 mt-1">Fallback available if needed</p>
         </div>
       </div>
     );
   }
 
-  // Error state (only show if both MapTiler and fallback fail)
-  if (error && !useMapTiler) {
+  // Error state
+  if (error) {
     return (
       <div className={`${className} bg-gray-50 flex items-center justify-center p-4`}>
         <div className="text-center max-w-sm">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Map Unavailable</h3>
           <p className="text-sm text-gray-600 mb-4">
-            Both MapTiler and OpenStreetMap fallback failed to load.
+            {error.includes('401') || error.includes('403') 
+              ? 'Map service is temporarily unavailable'
+              : 'Failed to load map. Check your connection.'}
           </p>
           <Button 
-            onClick={() => {
-              setUseMapTiler(true);
-              retry();
-            }} 
+            onClick={retry} 
             variant="secondary" 
             size="sm"
             className="inline-flex items-center gap-2"
@@ -301,28 +245,12 @@ export function MapView({
 
   // Map container
   return (
-    <div className={`${className} map-container`}>
+    <div className={className}>
       <div 
         ref={mapContainerRef} 
-        className="w-full h-full relative"
+        className="w-full h-full"
         style={{ minHeight: '300px' }}
-      >
-        {/* Map status indicator */}
-        {!useMapTiler && (
-          <div className="absolute top-2 left-2 bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded z-[1000]">
-            Using OpenStreetMap
-          </div>
-        )}
-        
-        {/* Debug info */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded z-[1000]">
-            Map: {mapLoaded ? 'Loaded' : 'Loading'} | 
-            Style: {useMapTiler ? 'MapTiler' : 'OSM'} | 
-            Markers: {markers.length}
-          </div>
-        )}
-      </div>
+      />
     </div>
   );
 }

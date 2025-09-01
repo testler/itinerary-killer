@@ -1,0 +1,41 @@
+/* MapLibre GL CSS overrides */
+.maplibregl-map {
+  font-family: inherit;
+}
+
+.maplibregl-popup-content {
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.maplibregl-popup-tip {
+  border-top-color: white;
+}
+
+.custom-marker {
+  transition: transform 0.2s ease;
+}
+
+.custom-marker:hover {
+  transform: scale(1.1);
+}
+
+.user-marker {
+  transition: transform 0.2s ease;
+}
+
+.user-marker:hover {
+  transform: scale(1.2);
+}
+
+/* Ensure map container takes full size */
+.map-container {
+  width: 100%;
+  height: 100%;
+  min-height: 300px;
+}
+
+.map-container .maplibregl-map {
+  width: 100% !important;
+  height: 100% !important;
+}

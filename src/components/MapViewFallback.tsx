@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Map, NavigationControl, Marker, Popup } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import './MapView.css';
 import { ItineraryItem, UserLocation } from '../types';
 import { useMapTilerKey } from '../hooks/useMapTilerKey';
 import { RefreshCw, AlertCircle } from 'lucide-react';
@@ -301,7 +300,7 @@ export function MapView({
 
   // Map container
   return (
-    <div className={`${className} map-container`}>
+    <div className={className}>
       <div 
         ref={mapContainerRef} 
         className="w-full h-full relative"
@@ -311,15 +310,6 @@ export function MapView({
         {!useMapTiler && (
           <div className="absolute top-2 left-2 bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded z-[1000]">
             Using OpenStreetMap
-          </div>
-        )}
-        
-        {/* Debug info */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded z-[1000]">
-            Map: {mapLoaded ? 'Loaded' : 'Loading'} | 
-            Style: {useMapTiler ? 'MapTiler' : 'OSM'} | 
-            Markers: {markers.length}
           </div>
         )}
       </div>
