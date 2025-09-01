@@ -103,7 +103,10 @@ export function ModernAddItemModal({ onClose, onAdd, userLocation }: ModernAddIt
         estimatedDuration: formData.estimatedDuration,
         cost: formData.cost,
         completed: false,
-        createdAt: new Date().toISOString()
+        done: false,
+        notes: '',
+        isOpen: false,
+        createdAt: new Date()
       };
 
       onAdd(newItem);

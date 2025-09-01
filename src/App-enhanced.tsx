@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy } from 'react';
+import React, { useState, useEffect, Suspense, lazy } from 'react';
 import { ItineraryItem, UserLocation } from './types';
 import { ModernPasswordGate } from './components/auth/ModernPasswordGate';
 import { MobileHeader } from './components/layout/MobileHeader';
@@ -36,6 +36,7 @@ function App() {
   // UI state
   const [currentView, setCurrentView] = useState<'map' | 'list' | 'done'>('map');
   const [showMobileNav, setShowMobileNav] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [hideDone, setHideDone] = useState(() => {
@@ -49,13 +50,16 @@ function App() {
   // Location state
   const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   // Map state
   const defaultCenter: [number, number] = [-81.3792, 28.5383]; // [lng, lat] for MapLibre (Orlando, FL)
   const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter);
+  const [selectedActivity, setSelectedActivity] = useState<ItineraryItem | null>(null);
 
   // Data hooks
   const { items, addItem, addItems, updateItem, deleteItem, loading } = useSpacetimeDB();
+  const { refreshAllActivities, refreshing } = useGeolocationRefresh();
 
   // Activity sorting
   const {
@@ -116,7 +120,7 @@ function App() {
         ? 'Location unavailable. Please check your GPS settings.'
         : 'Location request timed out. Please try again.';
       
-      console.error('Location error:', errorMessage);
+      setLocationError(errorMessage);
     } finally {
       setLocationLoading(false);
     }
@@ -156,6 +160,7 @@ function App() {
   };
 
   const handleShowOnMap = (activity: ItineraryItem) => {
+    setSelectedActivity(activity);
     setMapCenter([activity.location.lng, activity.location.lat]);
     setCurrentView('map');
     setShowMobileNav(false);
@@ -176,7 +181,26 @@ function App() {
     console.log('Map clicked at:', event);
   };
 
-
+  // Get distance from user for activities
+  const getDistanceFromUser = (activity: ItineraryItem): string | undefined => {
+    if (!userLocation) return undefined;
+    
+    try {
+      const distance = calculateDistance(
+        userLocation.lat,
+        userLocation.lng,
+        activity.location.lat,
+        activity.location.lng
+      );
+      
+      if (distance < 1) {
+        return `${Math.round(distance * 1000)}m`;
+      }
+      return `${distance.toFixed(1)}km`;
+    } catch {
+      return undefined;
+    }
+  };
 
   // Handle hide done toggle
   const handleHideDoneToggle = (hide: boolean) => {
@@ -203,7 +227,7 @@ function App() {
 
   // Show authentication if not authed and password is set
   if (!isAuthenticated && sitePassword) {
-    return <ModernPasswordGate expectedPassword={sitePassword} onAuthenticated={handleAuthenticated} />;
+    return <ModernPasswordGate onAuthenticated={handleAuthenticated} />;
   }
 
   return (
@@ -211,12 +235,9 @@ function App() {
       {/* Mobile Header */}
       <div className="lg:hidden">
         <MobileHeader 
-          onMenuToggle={() => setShowMobileNav(!showMobileNav)}
-          onAddActivity={() => setShowAddModal(true)}
-          onImportJson={() => setShowImportModal(true)}
-          onDeleteDuplicates={() => {}} // Placeholder
-          isMenuOpen={showMobileNav}
-          totalActivities={items.length}
+          onMenuClick={() => setShowMobileNav(!showMobileNav)}
+          onAddClick={() => setShowAddModal(true)}
+          title="Orlando Itinerary"
         />
       </div>
 
@@ -224,17 +245,11 @@ function App() {
         {/* Desktop Sidebar */}
         <div className="hidden lg:block">
           <DesktopSidebar
-            currentView={currentView === 'done' ? 'list' : currentView}
-            onViewChange={(view) => setCurrentView(view)}
-            onFilterToggle={() => {}} // Placeholder
             onAddActivity={() => setShowAddModal(true)}
-            onImportJson={() => setShowImportModal(true)}
-            onDeleteDuplicates={() => {}} // Placeholder
-            showFilters={false}
-            totalActivities={items.length}
-          >
-            {/* Sidebar content will go here */}
-          </DesktopSidebar>
+            onImportActivities={() => setShowImportModal(true)}
+            currentView={currentView}
+            onViewChange={setCurrentView}
+          />
         </div>
 
         {/* Mobile Navigation Overlay */}
@@ -243,13 +258,19 @@ function App() {
             <MobileNavigation
               isOpen={showMobileNav}
               onClose={() => setShowMobileNav(false)}
-              currentView={currentView === 'done' ? 'list' : currentView}
+              currentView={currentView}
               onViewChange={(view) => {
                 setCurrentView(view);
                 setShowMobileNav(false);
               }}
-              onFilterToggle={() => {}} // Placeholder
-              showFilters={false}
+              onAddActivity={() => {
+                setShowAddModal(true);
+                setShowMobileNav(false);
+              }}
+              onImportActivities={() => {
+                setShowImportModal(true);
+                setShowMobileNav(false);
+              }}
             />
           </div>
         )}
@@ -266,10 +287,8 @@ function App() {
                     {currentView === 'done' ? 'Completed Activities' : 'Activities'}
                   </h1>
                   <LocationRefreshButton 
-                    onRefreshLocation={getUserLocation}
-                    onRefreshAllActivities={async () => {}}
-                    hasLocation={!!userLocation}
-                    isLoading={locationLoading}
+                    onRefresh={getUserLocation}
+                    loading={locationLoading}
                   />
                 </div>
 
@@ -387,10 +406,8 @@ function App() {
                         {currentView === 'done' ? 'Completed Activities' : 'Activities'}
                       </h1>
                       <LocationRefreshButton 
-                        onRefreshLocation={getUserLocation}
-                        onRefreshAllActivities={async () => {}}
-                        hasLocation={!!userLocation}
-                        isLoading={locationLoading}
+                        onRefresh={getUserLocation}
+                        loading={locationLoading}
                       />
                     </div>
 

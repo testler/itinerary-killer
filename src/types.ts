@@ -20,6 +20,8 @@ export interface ItineraryItem {
   }; // Note: This field is not stored in the database
   createdAt: Date;
   completed: boolean;
+  done: boolean;
+  completedAt?: Date;
 }
 
 export interface UserLocation {

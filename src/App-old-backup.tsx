@@ -1,0 +1,1078 @@
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from 'react-leaflet';
+import { Icon, LeafletMouseEvent } from 'leaflet';
+import { MapPin, Plus, Menu, AlertCircle, RefreshCw } from 'lucide-react';
+import { ItineraryItem, UserLocation } from './types';
+import PasswordGate from './components/PasswordGate';
+import SiteLocked from './components/SiteLocked';
+import { useSecretVerification } from './hooks/useSecretVerification';
+import { useSpacetimeDB } from './hooks/useSpacetimeDB';
+import { calculateDistance } from './utils/location';
+import { AppSkeleton } from './components/LoadingSkeleton';
+import { SafeAreaFooter, Button } from './ui';
+import { usePerformanceMonitoring } from './hooks/usePerformanceMonitoring';
+import { useAdvancedPerformanceMonitoring } from './hooks/useAdvancedPerformanceMonitoring';
+import { useServiceWorker } from './hooks/useServiceWorker';
+import { useAdvancedCaching } from './hooks/useAdvancedCaching';
+import { useNetworkOptimization } from './hooks/useNetworkOptimization';
+import { useAdvancedPWA } from './hooks/useAdvancedPWA';
+// Removed dev-only debug import for production builds
+
+// Lazy load non-critical components
+const AddItemModal = lazy(() => import('./components/AddItemModal'));
+const ImportJsonModal = lazy(() => import('./components/ImportJsonModal'));
+const ItineraryList = lazy(() => import('./components/ItineraryList'));
+
+// Custom hook to handle map center updates
+function MapUpdater({ center }: { center: [number, number] }) {
+  const map = useMap();
+  
+  useEffect(() => {
+    map.setView(center, 13);
+  }, [center, map]);
+  
+  return null;
+}
+
+// Custom hook to handle map clicks
+function MapClickHandler({ onMapClick }: { onMapClick: (event: LeafletMouseEvent) => void }) {
+  useMapEvents({
+    click: onMapClick,
+  });
+  return null;
+}
+
+function App() {
+  const secretState = useSecretVerification();
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [isAuthed, setIsAuthed] = useState<boolean>(() => {
+    try {
+      return localStorage.getItem('site-authed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [sitePassword, setSitePassword] = useState<string | undefined>(() => {
+    const v = import.meta.env.VITE_SITE_PASSWORD as string | undefined;
+    return v && v.length > 0 ? v : undefined;
+  });
+  
+  // Loading state management
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadingProgress, setLoadingProgress] = useState(0);
+  // Removed unused loading phase state to reduce noise
+  
+  // Orlando, FL coordinates as default center
+  const defaultCenter: [number, number] = [28.5383, -81.3792];
+  const [mapCenter, setMapCenter] = useState<[number, number]>(defaultCenter);
+  
+  const { items, addItem, addItems, updateItem, deleteItem, loading } = useSpacetimeDB();
+  
+  // Performance monitoring
+  const { trackComponentLoadStart, trackComponentLoadEnd } = usePerformanceMonitoring();
+  
+  // Phase 3: Advanced Performance Monitoring & PWA
+  const {
+    metrics: advancedMetrics,
+    performanceScore,
+    trackComponentLoadStart: trackAdvancedComponentLoad,
+    trackComponentLoadEnd: trackAdvancedComponentEnd,
+    trackRenderStart,
+    trackRenderEnd,
+    trackUserInteraction,
+    generateReport
+  } = useAdvancedPerformanceMonitoring();
+  // Mark advanced metrics active to avoid duplicate simple metrics logs
+  (window as Window & { __IK_ADV_METRICS_ACTIVE?: boolean }).__IK_ADV_METRICS_ACTIVE = true;
+  
+  // Phase 2: Service Worker & Advanced Caching
+  const { 
+    isSupported: swSupported, 
+    isInstalled: swInstalled, 
+    isUpdated: swUpdated,
+    isOnline: swOnline,
+    skipWaiting: swSkipWaiting
+  } = useServiceWorker();
+  
+  const { 
+    trackUserAction,
+    cacheMapTilesIntelligently
+  } = useAdvancedCaching();
+  
+  const { 
+    isOnline: networkOnline,
+    requestOfflineSync
+  } = useNetworkOptimization();
+  
+  // Phase 3: Advanced PWA Features
+  const {
+    features: pwaFeatures,
+    installPWA,
+    isInstalling,
+    installationProgress,
+    // checkForUpdates,
+    shareContent,
+    offlineQueue,
+    syncStatus
+  } = useAdvancedPWA();
+
+  // Load password dynamically from Cloudflare /keys if not provided via env
+  useEffect(() => {
+    let aborted = false;
+    const loadPassword = async () => {
+      if (sitePassword) return;
+      // Try runtime-config, then env
+      let proxyUrl: string | undefined = import.meta.env.VITE_GOOGLE_PROXY_URL as string | undefined;
+      if (!proxyUrl) {
+        try {
+          const baseUrl: string = import.meta.env.BASE_URL || '/';
+          const rc = await fetch(baseUrl + 'runtime-config.json', { cache: 'no-store' });
+          if (rc.ok) {
+            const json = await rc.json();
+            proxyUrl = json?.VITE_GOOGLE_PROXY_URL || proxyUrl;
+            console.log('[secrets] runtime-config (for /keys) VITE_GOOGLE_PROXY_URL =', json?.VITE_GOOGLE_PROXY_URL);
+          }
+        } catch {
+          // ignore
+        }
+      }
+      if (!proxyUrl) return;
+      try {
+        const u = new URL(proxyUrl as string);
+        u.pathname = '/keys';
+        const res = await fetch(u.toString(), { method: 'GET', mode: 'cors' });
+        if (!res.ok) return;
+        const data: { SITE_PASSWORD?: string } = await res.json().catch(() => ({}) as { SITE_PASSWORD?: string });
+        if (!aborted && data?.SITE_PASSWORD) {
+          setSitePassword(data.SITE_PASSWORD as string);
+          console.log('[secrets] Loaded SITE_PASSWORD from /keys');
+        }
+      } catch (e) {
+        console.warn('[secrets] Failed to load SITE_PASSWORD from /keys', e);
+      }
+    };
+    loadPassword();
+    return () => { aborted = true; };
+  }, [sitePassword]);
+
+  // Get user's current location with improved error handling and fallback
+  const getUserLocation = (showAlert = true, attempt = 1) => {
+    if (!navigator.geolocation) {
+      const errorMsg = 'Geolocation is not supported by this browser.';
+      setLocationError(errorMsg);
+      if (showAlert) alert(errorMsg);
+      return;
+    }
+
+    setLocationLoading(true);
+    setLocationError(null);
+
+    // Progressive fallback strategy with better GPS handling
+    let options;
+    if (attempt === 1) {
+      // First attempt: High accuracy, longer timeout for weak GPS
+      options = {
+        enableHighAccuracy: true,
+        timeout: 30000, // 30 seconds (increased for weak GPS)
+        maximumAge: 300000 // 5 minutes
+      };
+    } else if (attempt === 2) {
+      // Second attempt: Lower accuracy, moderate timeout
+      options = {
+        enableHighAccuracy: false,
+        timeout: 15000, // 15 seconds
+        maximumAge: 600000 // 10 minutes
+      };
+    } else {
+      // Final attempt: Fastest possible, use cached if available
+      options = {
+        enableHighAccuracy: false,
+        timeout: 8000, // 8 seconds
+        maximumAge: 900000 // 15 minutes
+      };
+    }
+
+    console.log(`🔄 Location attempt ${attempt} with options:`, options);
+    console.log(`💡 GPS Tip: If this times out, try moving to an open area or wait 2-3 minutes for GPS to stabilize`);
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const newLocation: UserLocation = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          accuracy: position.coords.accuracy,
+          timestamp: new Date()
+        };
+        setUserLocation(newLocation);
+        setMapCenter([newLocation.lat, newLocation.lng]);
+        setLocationLoading(false);
+        setLocationError(null);
+        
+        if (showAlert) {
+          console.log('✅ Location obtained successfully:', newLocation);
+        }
+      },
+      (error) => {
+        console.error(`❌ Location attempt ${attempt} failed:`, error);
+        
+        if (error.code === error.TIMEOUT && attempt < 3) {
+          // Try again with different settings
+          console.log(`🔄 Retrying with attempt ${attempt + 1}...`);
+          setTimeout(() => getUserLocation(showAlert, attempt + 1), 1000);
+          return;
+        }
+        
+        setLocationLoading(false);
+        let errorMessage = 'Unable to get your location.';
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = 'Location access denied. Please enable location permissions in your browser settings.';
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = 'Location information is unavailable. Please try again.';
+            break;
+          case error.TIMEOUT:
+            errorMessage = 'Location request timed out after multiple attempts. Try moving to an open area or use manual location.';
+            break;
+          default:
+            errorMessage = `Location error: ${error.message}`;
+        }
+        
+        setLocationError(errorMessage);
+        if (showAlert) {
+          alert(errorMessage);
+        }
+      },
+      options
+    );
+  };
+
+  // Progressive loading sequence - Fixed: Run only once when authenticated
+  useEffect(() => {
+    if (!isAuthed || !isLoading) return;
+    
+    const loadSequence = async () => {
+      try {
+        // Phase 1: Core initialization (20%)
+        trackComponentLoadStart('Core Initialization');
+        trackAdvancedComponentLoad('Core Initialization');
+        trackRenderStart('App');
+        // Phase info no longer tracked in state
+        setLoadingProgress(20);
+        await new Promise(resolve => setTimeout(resolve, 200)); // Simulate loading
+        trackComponentLoadEnd('Core Initialization');
+        trackAdvancedComponentEnd('Core Initialization');
+        
+        // Phase 2: Database connection (40%)
+        trackComponentLoadStart('Database Connection');
+        trackAdvancedComponentLoad('Database Connection');
+        
+        setLoadingProgress(40);
+        await new Promise(resolve => setTimeout(resolve, 300));
+        trackComponentLoadEnd('Database Connection');
+        trackAdvancedComponentEnd('Database Connection');
+        
+        // Phase 3: Map initialization (60%)
+        trackComponentLoadStart('Map Initialization');
+        trackAdvancedComponentLoad('Map Initialization');
+        
+        setLoadingProgress(60);
+        await new Promise(resolve => setTimeout(resolve, 400));
+        trackComponentLoadEnd('Map Initialization');
+        trackAdvancedComponentEnd('Map Initialization');
+        
+        // Phase 4: Location services (80%)
+        trackComponentLoadStart('Location Services');
+        trackAdvancedComponentLoad('Location Services');
+        
+        setLoadingProgress(80);
+        await getUserLocation(false);
+        trackComponentLoadEnd('Location Services');
+        trackAdvancedComponentEnd('Location Services');
+        
+        // Phase 5: Complete (100%)
+        
+        setLoadingProgress(100);
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        trackRenderEnd('App');
+        setIsLoading(false);
+      } catch (error) {
+        console.error('Loading sequence failed:', error);
+        setIsLoading(false);
+      }
+    };
+    
+    loadSequence();
+  }, [isAuthed]); // Removed all function dependencies to prevent infinite loop
+
+  useEffect(() => {
+    if (window.innerWidth <= 768) {
+      setSidebarOpen(false);
+    }
+  }, []);
+
+  // Add touch gesture support for mobile sidebar
+  useEffect(() => {
+    if (window.innerWidth > 768) return;
+
+    let startX = 0;
+    let startY = 0;
+    let isSwiping = false;
+    let touchStartTime = 0;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      // Don't handle touches on interactive elements
+      const target = e.target as Element;
+      if (target.closest('button') || target.closest('input') || target.closest('select') || target.closest('textarea')) {
+        // Reset swipe state when touching interactive elements
+        startX = 0;
+        startY = 0;
+        isSwiping = false;
+        touchStartTime = 0;
+        // Allow the button's own touch handlers to work
+        return;
+      }
+      
+      // Only handle touches on non-interactive areas
+      startX = e.touches[0].clientX;
+      startY = e.touches[0].clientY;
+      touchStartTime = Date.now();
+      isSwiping = false;
+      
+      // Add visual feedback for swipe area
+      const swipeArea = document.querySelector('.swipe-area');
+      if (swipeArea && startX < 60) {
+        swipeArea.classList.add('active');
+      }
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (!isSwiping && touchStartTime > 0) {
+        const deltaX = Math.abs(e.touches[0].clientX - startX);
+        const deltaY = Math.abs(e.touches[0].clientY - startY);
+        
+        // Start swiping if horizontal movement is significant and vertical is minimal
+        if (deltaX > 15 && deltaY < 40) {
+          isSwiping = true;
+          // Prevent default to avoid scrolling during swipe
+          e.preventDefault();
+        }
+      }
+    };
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (isSwiping && touchStartTime > 0) {
+        const deltaX = e.changedTouches[0].clientX - startX;
+        const deltaY = Math.abs(e.changedTouches[0].clientY - startY);
+        const touchDuration = Date.now() - touchStartTime;
+        
+        // Swipe right from left edge to open sidebar (more sensitive)
+        if (deltaX > 40 && deltaY < 40 && startX < 60 && touchDuration < 500) {
+          setSidebarOpen(true);
+        }
+        // Swipe left to close sidebar
+        else if (deltaX < -40 && deltaY < 40 && sidebarOpen && touchDuration < 500) {
+          setSidebarOpen(false);
+        }
+      }
+      
+      // Reset state
+      startX = 0;
+      startY = 0;
+      isSwiping = false;
+      touchStartTime = 0;
+      
+      // Remove visual feedback
+      const swipeArea = document.querySelector('.swipe-area');
+      if (swipeArea) {
+        swipeArea.classList.remove('active');
+      }
+    };
+
+    document.addEventListener('touchstart', handleTouchStart, { passive: false });
+    document.addEventListener('touchmove', handleTouchMove, { passive: false });
+    document.addEventListener('touchend', handleTouchEnd, { passive: true });
+
+    return () => {
+      document.removeEventListener('touchstart', handleTouchStart);
+      document.removeEventListener('touchmove', handleTouchMove);
+      document.removeEventListener('touchend', handleTouchEnd);
+    };
+  }, [sidebarOpen]);
+
+  // Debug button functionality
+  useEffect(() => {
+    console.log('App component mounted, buttons should be functional');
+    console.log('showAddModal state:', showAddModal);
+    console.log('showImportModal state:', showImportModal);
+    
+    // Test button event listeners
+    setTimeout(() => {
+      const addBtn = document.querySelector('.add-btn');
+      const importBtn = document.querySelector('.import-btn');
+      const closeBtn = document.querySelector('.sidebar-close-btn');
+      const testBtn = document.querySelector('.test-btn');
+      
+      console.log('Button elements found:', {
+        addBtn: !!addBtn,
+        importBtn: !!importBtn,
+        closeBtn: !!closeBtn,
+        testBtn: !!testBtn
+      });
+      
+      if (addBtn) {
+        console.log('Add button styles:', window.getComputedStyle(addBtn));
+        console.log('Add button pointer-events:', window.getComputedStyle(addBtn).pointerEvents);
+        
+        // Add a test click listener
+        addBtn.addEventListener('click', () => {
+          console.log('Add button clicked via addEventListener!');
+        });
+        
+        // Test touch events
+        addBtn.addEventListener('touchstart', (e) => {
+          console.log('Add button touchstart via addEventListener!');
+        });
+        
+        addBtn.addEventListener('touchend', (e) => {
+          console.log('Add button touchend via addEventListener!');
+        });
+      }
+    }, 1000);
+  }, [showAddModal, showImportModal]);
+
+  // Close sidebar when clicking outside on mobile
+  useEffect(() => {
+    if (window.innerWidth > 768 || !sidebarOpen) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Element;
+      if (!target.closest('.sidebar') && !target.closest('.sidebar-toggle')) {
+        setSidebarOpen(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [sidebarOpen]);
+
+  // Handle adding new itinerary item
+  const handleAddItem = async (itemData: Omit<ItineraryItem, 'id' | 'createdAt' | 'completed'>) => {
+    // Track user behavior for predictive loading
+    trackUserAction('add-item');
+    
+    // Track advanced performance metrics
+    trackUserInteraction('add-item', { itemCategory: itemData.category });
+    
+    const newItem: ItineraryItem = {
+      ...itemData,
+      id: Date.now().toString(),
+      createdAt: new Date(),
+      completed: false,
+      done: false
+    };
+    
+    // Use network optimization for API requests
+    if (networkOnline) {
+      await addItem(newItem);
+    } else {
+      // Queue for offline sync
+      await requestOfflineSync('add-item', { item: newItem });
+    }
+    
+    setShowAddModal(false);
+  };
+
+  // Handle item selection
+  const handleItemSelect = (item: ItineraryItem) => {
+    trackUserAction('view-map');
+    
+    // Track advanced performance metrics
+    trackUserInteraction('view-map', { itemId: item.id, itemCategory: item.category });
+    
+    setMapCenter([item.location.lat, item.location.lng]);
+    
+    // Cache map tiles intelligently for the selected location
+    if (swOnline) {
+      cacheMapTilesIntelligently([item.location.lat, item.location.lng], 13);
+    }
+  };
+
+  // Handle map click to set manual location
+  const handleMapClick = (event: LeafletMouseEvent) => {
+    const { lat, lng } = event.latlng;
+    const manualLocation: UserLocation = {
+      lat,
+      lng,
+      accuracy: 100, // Manual location has lower accuracy
+      timestamp: new Date()
+    };
+    setUserLocation(manualLocation);
+    setLocationError(null);
+    console.log('Manual location set:', manualLocation);
+  };
+
+  // Calculate distance from user location
+  const getDistanceFromUser = (item: ItineraryItem) => {
+    if (!userLocation) return null;
+    const distance = calculateDistance(
+      userLocation.lat,
+      userLocation.lng,
+      item.location.lat,
+      item.location.lng
+    );
+    return distance < 1 ? `${Math.round(distance * 5280)} ft` : `${distance.toFixed(1)} mi`;
+  };
+
+  // Custom marker icon
+  const customIcon = new Icon({
+    iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyQzIgMTcuNTIgNi40OCAyMiAxMiAyMkMxNy41MiAyMiAyMiAxNy41MiAyMiAxMkMyMiA2LjQ4IDE3LjUyIDIgMTIgMloiIGZpbGw9IiMzQjgyRjYiLz4KPHBhdGggZD0iTTEyIDZDNi40OCA2IDIgMTAuNDggMiAxNkMyIDE5LjUyIDQuNDggMjIgOCAyMkMxMS41MiAyMiAxNCAxOS41MiAxNCAxNkMxNCAxMi40OCAxMS41MiA5IDggOUM0LjQ4IDkgMSAxMi40OCAxIDE2QzEgMTkuNTIgNC40OCAyMyA4IDIzQzExLjUyIDIzIDE1IDE5LjUyIDE1IDE2QzE1IDEyLjQ4IDExLjUyIDkgOCA5WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32]
+  });
+
+  const userIcon = new Icon({
+    iconUrl: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjQiIGhlaWdodD0iMjQiIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZD0iTTEyIDJDNi40OCAyIDIgNi40OCAyIDEyQzIgMTcuNTIgNi40OCAyMiAxMiAyMkMxNy41MiAyMiAyMiAxNy41MiAyMiAxMkMyMiA2LjQ4IDE3LjUyIDIgMTIgMloiIGZpbGw9IiMxMEI5NEEiLz4KPHBhdGggZD0iTTEyIDZDNi40OCA2IDIgMTAuNDggMiAxNkMyIDE5LjUyIDQuNDggMjIgOCAyMkMxMS41MiAyMiAxNCAxOS41MiAxNCAxNkMxNCAxMi40OCAxMS41MiA5IDggOUM0LjQ4IDkgMSAxMi40OCAxIDE2QzEgMTkuNTIgNC40OCAyMyA4IDIzQzExLjUyIDIzIDE1IDE5LjUyIDE1IDE2QzE1IDEyLjQ4IDExLjUyIDkgOCA5WiIgZmlsbD0id2hpdGUiLz4KPC9zdmc+',
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32]
+  });
+
+  // Global secret verification gate
+  if (secretState.status === 'checking') {
+    return (
+      <div className="app" style={{ display: 'grid', placeItems: 'center', minHeight: '100vh', padding: 16 }}>
+        <div>Verifying environment…</div>
+      </div>
+    );
+  }
+
+  if (secretState.status === 'locked') {
+    return <SiteLocked reason={secretState.reason} />;
+  }
+
+  if (!isAuthed) {
+    return (
+      <PasswordGate
+        expectedPassword={sitePassword}
+        onAuthenticated={() => {
+          setIsAuthed(true);
+          try { localStorage.setItem('site-authed', 'true'); } catch { /* ignore */ }
+        }}
+      />
+    );
+  }
+
+  // Show loading skeleton while app initializes
+  if (isLoading) {
+    return (
+      <AppSkeleton loadingProgress={loadingProgress} />
+    );
+  }
+
+  return (
+    <div className="app">
+      {/* Sidebar */}
+      <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+        <div className="sidebar-header">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div>
+              <h1>🗺️ Itinerary Killer</h1>
+              <p>Plan your perfect Orlando adventure</p>
+            </div>
+            {window.innerWidth <= 768 && (
+              <button
+                className="sidebar-close-btn"
+                onClick={() => {
+                  console.log('Close button clicked!');
+                  setSidebarOpen(false);
+                }}
+                onTouchStart={(e) => {
+                  console.log('Close button touch start');
+                  e.preventDefault();
+                  e.currentTarget.style.transform = 'scale(0.95)';
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+                }}
+                onTouchEnd={(e) => {
+                  console.log('Close button touch end');
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+                }}
+                aria-label="Close sidebar"
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <div className="sidebar-action-buttons">
+            <button 
+              className="sidebar-btn add-btn"
+              onClick={() => {
+                console.log('Add button clicked!');
+                setShowAddModal(true);
+              }} 
+              onTouchStart={(e) => {
+                console.log('Add button touch start');
+                e.preventDefault();
+                e.currentTarget.style.transform = 'scale(0.95)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+              }}
+              onTouchEnd={(e) => {
+                console.log('Add button touch end');
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+              }}
+              aria-label="Add new activity"
+            >
+              Add
+            </button>
+            <button 
+              className="sidebar-btn import-btn"
+              onClick={() => {
+                console.log('Import button clicked!');
+                setShowImportModal(true);
+              }} 
+              onTouchStart={(e) => {
+                console.log('Import button touch start');
+                e.preventDefault();
+                e.currentTarget.style.transform = 'scale(0.95)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.3)';
+              }}
+              onTouchEnd={(e) => {
+                console.log('Import button touch end');
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.2)';
+              }}
+              aria-label="Import activities JSON"
+            >
+              Import
+            </button>
+
+          </div>
+          
+          {/* Location status */}
+          <div className="location-status">
+            {locationLoading ? (
+              <div className="status-item loading">
+                <RefreshCw size={16} className="animate-spin" />
+                <span>Getting location...</span>
+              </div>
+            ) : userLocation ? (
+              <div className="status-item success">
+                <MapPin size={16} />
+                <span>Location active</span>
+                <div className="coordinates">
+                  {userLocation.lat.toFixed(4)}, {userLocation.lng.toFixed(4)}
+                </div>
+                <div className="accuracy">
+                  ±{Math.round(userLocation.accuracy)}m
+                </div>
+              </div>
+            ) : locationError ? (
+              <div className="status-item error">
+                <AlertCircle size={16} />
+                <span>Location unavailable</span>
+                <button 
+                  className="retry-button"
+                  onClick={() => getUserLocation(false)}
+                >
+                  Retry
+                </button>
+              </div>
+            ) : (
+              <div className="status-item">
+                <MapPin size={16} />
+                <span>Click map button for location</span>
+              </div>
+            )}
+          </div>
+
+          {/* Service Worker & Network Status */}
+          <div className="sw-status">
+            <div className="status-item">
+              <div className="status-icon">
+                {swSupported ? '🔧' : '❌'}
+              </div>
+              <span>Service Worker: {swSupported ? (swInstalled ? 'Active' : 'Installing...') : 'Not Supported'}</span>
+              {swUpdated && (
+                <button 
+                  className="update-button"
+                  onClick={swSkipWaiting}
+                  style={{
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    border: '1px solid rgba(59, 130, 246, 0.4)',
+                    color: '#3b82f6',
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '4px',
+                    fontSize: '0.75rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Update Available
+                </button>
+              )}
+            </div>
+            
+            <div className="status-item">
+              <div className="status-icon">
+                {networkOnline ? '🌐' : '📱'}
+              </div>
+              <span>Network: {networkOnline ? 'Online' : 'Offline'}</span>
+              {null}
+            </div>
+          </div>
+
+          {/* PWA Features & Performance Monitoring */}
+          <div className="pwa-status">
+            <div className="status-item">
+              <div className="status-icon">
+                {pwaFeatures.isInstallable ? '📱' : pwaFeatures.isInstalled ? '✅' : '❌'}
+              </div>
+              <span>PWA: {pwaFeatures.isInstallable ? 'Installable' : pwaFeatures.isInstalled ? 'Installed' : 'Not Available'}</span>
+              {pwaFeatures.isInstallable && (
+                <button 
+                  className="install-button"
+                  onClick={installPWA}
+                  disabled={isInstalling}
+                  style={{
+                    background: 'rgba(34, 197, 94, 0.2)',
+                    border: '1px solid rgba(34, 197, 94, 0.4)',
+                    color: '#22c55e',
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '4px',
+                    fontSize: '0.75rem',
+                    cursor: isInstalling ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {isInstalling ? `Installing... ${installationProgress}%` : 'Install App'}
+                </button>
+              )}
+            </div>
+
+            <div className="status-item">
+              <div className="status-icon">
+                {performanceScore >= 90 ? '🟢' : performanceScore >= 70 ? '🟡' : '🔴'}
+              </div>
+              <span>Performance: {performanceScore}/100</span>
+              {advancedMetrics && (
+                <div className="performance-details">
+                  <div>LCP: {advancedMetrics.lcp.toFixed(0)}ms</div>
+                  <div>FID: {advancedMetrics.fid.toFixed(0)}ms</div>
+                  <div>CLS: {advancedMetrics.cls.toFixed(3)}</div>
+                </div>
+              )}
+            </div>
+
+            {offlineQueue.length > 0 && (
+              <div className="status-item">
+                <div className="status-icon">
+                  {syncStatus === 'syncing' ? '🔄' : syncStatus === 'completed' ? '✅' : '📝'}
+                </div>
+                <span>Offline Queue: {offlineQueue.length} items</span>
+                <div className="sync-status">
+                  {syncStatus === 'syncing' ? 'Syncing...' : syncStatus === 'completed' ? 'Synced' : 'Pending'}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="sidebar-content">
+          <Suspense fallback={
+            <div style={{ textAlign: 'center', padding: '2rem' }}>
+              <div style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>⏳</div>
+              <p>Loading itinerary...</p>
+            </div>
+          }>
+            <ItineraryList
+              items={items}
+              onItemSelect={handleItemSelect}
+              onItemUpdate={updateItem}
+              onItemDelete={deleteItem}
+              userLocation={userLocation}
+              getDistanceFromUser={getDistanceFromUser}
+              loading={loading}
+            />
+          </Suspense>
+        </div>
+      </div>
+
+      {/* Map Container */}
+      <div className="map-container">
+        {/* Mobile sidebar toggle */}
+        <button
+          className="sidebar-toggle"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          aria-label="Toggle itinerary sidebar"
+        >
+          <Menu size={24} />
+        </button>
+
+        {/* Location button */}
+        <button 
+          className={`location-button ${locationLoading ? 'loading' : ''} ${locationError ? 'error' : ''}`}
+          onClick={() => getUserLocation(true)}
+          disabled={locationLoading}
+          title={locationError || 'Get current location'}
+          aria-label="Get current location"
+          style={{
+            marginTop: 'env(safe-area-inset-top)',
+            marginRight: 'env(safe-area-inset-right)'
+          }}
+        >
+          {locationLoading ? (
+            <div className="loading-content">
+              <RefreshCw size={20} className="animate-spin" />
+              <span className="loading-text">Getting location...</span>
+            </div>
+          ) : (
+            <MapPin size={20} />
+          )}
+        </button>
+        
+        {/* Location status indicator */}
+        {locationError && (
+          <div className="location-error-tooltip">
+            <AlertCircle size={16} />
+            <span>{locationError}</span>
+            {locationError.includes('timed out') && (
+              <div className="timeout-help">
+                <p>💡 <strong>GPS Signal Too Weak - Try These:</strong></p>
+                <div className="gps-tips">
+                  <div className="tip-priority high">
+                    <span>🔥 <strong>Immediate:</strong></span>
+                    <ul>
+                      <li>Click anywhere on the map to set location manually</li>
+                      <li>This bypasses GPS and works instantly</li>
+                    </ul>
+                  </div>
+                  <div className="tip-priority medium">
+                    <span>📍 <strong>Better GPS Signal:</strong></span>
+                    <ul>
+                      <li>Move to an open area (park, parking lot, street)</li>
+                      <li>Go outside if you're indoors</li>
+                      <li>Wait 2-3 minutes for GPS to stabilize</li>
+                    </ul>
+                  </div>
+                  <div className="tip-priority low">
+                    <span>⚙️ <strong>Device Settings:</strong></span>
+                    <ul>
+                      <li>Enable location services on your device</li>
+                      <li>Turn on GPS in device settings</li>
+                      <li>Try refreshing the page after moving</li>
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Bottom actions as safe-area aware footer */}
+        <SafeAreaFooter>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="primary" size="lg" aria-label="Add new activity" onClick={() => setShowAddModal(true)} leftIcon={<Plus size={20} />}>Add</Button>
+            {pwaFeatures.hasShareTarget && (
+              <Button
+                variant="neutral"
+                aria-label="Share itinerary"
+                onClick={() => shareContent({
+                  title: 'My Orlando Adventure',
+                  text: `Check out my ${items.length} planned activities in Orlando!`,
+                  url: window.location.href
+                })}
+              >
+                📤 Share
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              aria-label="Generate performance report"
+              onClick={() => {
+                const report = generateReport();
+                console.log(report);
+                alert('Performance report logged to console. Check developer tools.');
+              }}
+            >
+              📊 Perf
+            </Button>
+          </div>
+        </SafeAreaFooter>
+
+        {/* Map */}
+        <MapContainer
+          center={mapCenter}
+          zoom={13}
+          className="map"
+          zoomControl={false}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          
+                  {/* Map click instruction */}
+        {!userLocation && !locationLoading && (
+          <div className="map-instruction">
+            <MapPin size={20} />
+            <span>Click anywhere on the map to set your location</span>
+            <div className="manual-location-hint">
+              <strong>💡 Quick Fix:</strong> This bypasses GPS and works instantly!
+            </div>
+          </div>
+        )}
+
+        {/* Mobile sidebar toggle button */}
+        {window.innerWidth <= 768 && (
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarOpen(true)}
+            aria-label="Open itinerary sidebar"
+            style={{
+              position: 'absolute',
+              top: 'calc(1rem + env(safe-area-inset-top))',
+              left: '1rem',
+              zIndex: 1000,
+              background: 'white',
+              border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              padding: '1rem',
+              cursor: 'pointer',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              minWidth: '56px',
+              minHeight: '56px',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)'
+            }}
+          >
+            <Menu size={24} />
+          </button>
+        )}
+
+        {/* Swipe area indicator for mobile */}
+        {window.innerWidth <= 768 && (
+          <div 
+            className="swipe-area"
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: 0,
+              width: '60px',
+              height: '100vh',
+              zIndex: 1,
+              pointerEvents: 'none'
+            }}
+          />
+        )}
+
+        {/* Mobile swipe hint */}
+        {window.innerWidth <= 768 && (
+          <div className="swipe-hint">
+            💡 Swipe right from left edge to open itinerary
+          </div>
+        )}
+          
+          {/* User location marker */}
+          {userLocation && (
+            <Marker
+              position={[userLocation.lat, userLocation.lng]}
+              icon={userIcon}
+            >
+              <Popup>
+                <div>
+                  <h3>📍 You are here</h3>
+                  <p>Accuracy: {Math.round(userLocation.accuracy)}m</p>
+                </div>
+              </Popup>
+            </Marker>
+          )}
+
+          {/* Itinerary item markers */}
+          {items.map((item) => (
+            <Marker
+              key={item.id}
+              position={[item.location.lat, item.location.lng]}
+              icon={customIcon}
+              eventHandlers={{
+                click: () => handleItemSelect(item)
+              }}
+            >
+              <Popup>
+                <div>
+                  <h3>{item.title}</h3>
+                  <p>{item.description}</p>
+                  <p><strong>Category:</strong> {item.category}</p>
+                  <p><strong>Priority:</strong> {item.priority}</p>
+                  <p><strong>Duration:</strong> {item.estimatedDuration} min</p>
+                  <p><strong>Cost:</strong> ${item.cost}</p>
+                  {userLocation && (
+                    <p className="distance">
+                      📍 {getDistanceFromUser(item)}
+                    </p>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          ))}
+
+          <MapUpdater center={mapCenter} />
+          <MapClickHandler onMapClick={handleMapClick} />
+        </MapContainer>
+      </div>
+
+      {/* Add Item Modal */}
+      {showAddModal && (
+        <Suspense fallback={
+          <div className="modal">
+            <div className="modal-content">
+              <div style={{ textAlign: 'center', padding: '2rem' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
+                <p>Loading add activity form...</p>
+              </div>
+            </div>
+          </div>
+        }>
+          <AddItemModal
+            onClose={() => setShowAddModal(false)}
+            onAdd={handleAddItem}
+            userLocation={userLocation}
+          />
+        </Suspense>
+      )}
+      {showImportModal && (
+        <Suspense fallback={
+          <div className="modal">
+            <div className="modal-content">
+              <div style={{ textAlign: 'center', padding: '2rem' }}>
+                <div style={{ fontSize: '2rem', marginBottom: '1rem' }}>⏳</div>
+                <p>Loading import form...</p>
+              </div>
+            </div>
+          </div>
+        }>
+          <ImportJsonModal
+            onClose={() => setShowImportModal(false)}
+            onImport={async (newItems) => {
+              await addItems(newItems);
+              setShowImportModal(false);
+            }}
+          />
+        </Suspense>
+      )}
+
+
+    </div>
+  );
+}
+
+export default App;

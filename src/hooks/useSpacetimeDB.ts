@@ -16,6 +16,8 @@ type DbItem = {
   created_at: string | null;
   completed: boolean | null;
   is_open: boolean | null;
+  done: boolean | null;
+  completed_at: string | null;
   // notes column removed - not in database schema
 };
 
@@ -32,7 +34,9 @@ const fromDb = (r: DbItem): ItineraryItem => ({
   notes: '', // Default empty string since notes column doesn't exist in DB
   isOpen: Boolean(r.is_open),
   createdAt: r.created_at ? new Date(r.created_at) : new Date(),
-  completed: Boolean(r.completed)
+  completed: Boolean(r.completed),
+  done: Boolean(r.done),
+  completedAt: r.completed_at ? new Date(r.completed_at) : undefined
 });
 
 const toDb = (i: ItineraryItem): DbItem => {
@@ -58,6 +62,8 @@ const toDb = (i: ItineraryItem): DbItem => {
     location_lng: i.location.lng,
     created_at: i.createdAt.toISOString(),
     completed: i.completed,
+    done: i.done,
+    completed_at: i.completedAt ? i.completedAt.toISOString() : null,
     is_open: i.isOpen
     // notes field removed - not in database schema
     // openingHours field not stored in database

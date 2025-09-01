@@ -18,6 +18,7 @@ interface ActivityCardProps {
   onToggleComplete: (id: string, completed: boolean) => void;
   onShowOnMap: (activity: ItineraryItem) => void;
   onDelete: (id: string) => void;
+  onMarkDone?: (id: string) => void;
   distance?: string;
   isCompact?: boolean;
 }
@@ -45,6 +46,7 @@ export function ActivityCard({
   onToggleComplete,
   onShowOnMap,
   onDelete,
+  onMarkDone,
   distance,
   isCompact = false
 }: ActivityCardProps) {
@@ -138,6 +140,17 @@ export function ActivityCard({
         >
           Show on Map
         </Button>
+        {onMarkDone && !activity.done && (
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => onMarkDone(activity.id)}
+            className="px-3 text-green-600 border-green-200 hover:bg-green-50 hover:border-green-300"
+            title="Mark as done"
+          >
+            Done
+          </Button>
+        )}
         <Button
           variant="ghost"
           size="sm"
