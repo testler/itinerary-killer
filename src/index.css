@@ -1,5 +1,8 @@
 @import './ui/tokens.css';
 
+/* MapLibre GL CSS - ensure it loads */
+@import 'maplibre-gl/dist/maplibre-gl.css';
+
 :root {
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;

@@ -25,7 +25,10 @@ export function useMapTilerKey(): MapTilerKeyState {
         try {
           const baseUrl: string = import.meta.env.BASE_URL || '/';
           console.log('Trying to fetch runtime config from:', baseUrl + 'runtime-config.json');
-          const rc = await fetch(baseUrl + 'runtime-config.json', { cache: 'no-store' });
+          const rc = await fetch(baseUrl + 'runtime-config.json', { 
+            cache: 'no-store',
+            signal: AbortSignal.timeout(5000) // Shorter timeout for config
+          });
           if (rc.ok) {
             const json = await rc.json();
             proxyUrl = json?.VITE_GOOGLE_PROXY_URL;
@@ -37,7 +40,8 @@ export function useMapTilerKey(): MapTilerKeyState {
       }
 
       if (!proxyUrl) {
-        throw new Error('Cloudflare endpoint URL not configured. Check VITE_GOOGLE_PROXY_URL env var or runtime-config.json');
+        console.warn('No MapTiler proxy URL configured, will use fallback OpenStreetMap');
+        throw new Error('MapTiler proxy not configured - using OpenStreetMap fallback');
       }
 
       // Fetch the keys from the Cloudflare endpoint
@@ -49,12 +53,15 @@ export function useMapTilerKey(): MapTilerKeyState {
       const response = await fetch(u.toString(), { 
         method: 'GET', 
         mode: 'cors',
-        // Add timeout to handle slow networks
-        signal: AbortSignal.timeout(10000)
+        headers: {
+          'Accept': 'application/json',
+        },
+        // Shorter timeout to fail fast and use fallback
+        signal: AbortSignal.timeout(8000)
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to fetch keys: ${response.status} ${response.statusText}`);
+        throw new Error(`MapTiler key fetch failed: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -69,7 +76,8 @@ export function useMapTilerKey(): MapTilerKeyState {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error occurred';
       setError(errorMessage);
-      console.error('Failed to fetch MapTiler key:', err);
+      console.warn('MapTiler key fetch failed, OpenStreetMap fallback will be used:', err);
+      // Don't set key to null, leave it as is to trigger fallback
     } finally {
       setLoading(false);
     }

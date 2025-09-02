@@ -1,4 +1,4 @@
-import React, { useState, Suspense, lazy } from 'react';
+import { useState, Suspense, lazy } from 'react';
 import { ItineraryItem, UserLocation } from './types';
 import { ModernPasswordGate } from './components/auth/ModernPasswordGate';
 import { MobileHeader } from './components/layout/MobileHeader';
@@ -10,9 +10,7 @@ import { ActivitySortToggle } from './components/ActivitySortToggle';
 import { MapView } from './components/MapView';
 import { LocationRefreshButton } from './components/LocationRefreshButton';
 import { useSpacetimeDB } from './hooks/useSpacetimeDB';
-import { useGeolocationRefresh } from './hooks/useGeolocationRefresh';
 import { useActivitySorting } from './hooks/useActivitySorting';
-import { calculateDistance } from './utils/location';
 
 // Lazy load heavy components
 const AddItemModal = lazy(() => import('./components/ModernAddItemModal'));
@@ -84,12 +82,11 @@ function App() {
   // Get user location
   const getUserLocation = async () => {
     if (!navigator.geolocation) {
-      setLocationError('Geolocation is not supported by this browser.');
+      console.error('Geolocation is not supported by this browser.');
       return;
     }
 
     setLocationLoading(true);
-    setLocationError(null);
 
     try {
       const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -109,10 +106,11 @@ function App() {
 
       setUserLocation(newLocation);
       setMapCenter([newLocation.lng, newLocation.lat]); // MapLibre uses [lng, lat]
-    } catch (error: any) {
-      const errorMessage = error.code === 1 
+    } catch (error: unknown) {
+      const geolocationError = error as GeolocationPositionError;
+      const errorMessage = geolocationError.code === 1 
         ? 'Location access denied. Please enable location permissions.'
-        : error.code === 2
+        : geolocationError.code === 2
         ? 'Location unavailable. Please check your GPS settings.'
         : 'Location request timed out. Please try again.';
       
@@ -191,11 +189,31 @@ function App() {
   // Get activities for map markers
   const getMapMarkers = () => {
     const activitiesToShow = hideDone ? sortedActivities.filter(a => !a.done) : sortedActivities;
-    return activitiesToShow.map(activity => ({
-      id: activity.id,
-      coords: [activity.location.lng, activity.location.lat] as [number, number],
-      activity
-    }));
+    const validMarkers = activitiesToShow
+      .filter(activity => {
+        // Validate location data
+        const hasValidLocation = activity.location && 
+          typeof activity.location.lat === 'number' && 
+          typeof activity.location.lng === 'number' &&
+          !isNaN(activity.location.lat) && 
+          !isNaN(activity.location.lng) &&
+          activity.location.lat !== 0 && 
+          activity.location.lng !== 0;
+        
+        if (!hasValidLocation) {
+          console.warn(`Activity "${activity.title}" has invalid location:`, activity.location);
+        }
+        
+        return hasValidLocation;
+      })
+      .map(activity => ({
+        id: activity.id,
+        coords: [activity.location.lng, activity.location.lat] as [number, number],
+        activity
+      }));
+    
+    console.log(`Map markers: ${validMarkers.length} valid out of ${activitiesToShow.length} activities`);
+    return validMarkers;
   };
 
   // Get done activities
@@ -233,7 +251,7 @@ function App() {
             showFilters={false}
             totalActivities={items.length}
           >
-            {/* Sidebar content will go here */}
+            <div>Sidebar content will go here</div>
           </DesktopSidebar>
         </div>
 

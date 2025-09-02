@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Map, NavigationControl, Marker, Popup } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import './MapView.css';
@@ -39,7 +39,7 @@ const FALLBACK_STYLE = {
       source: 'osm'
     }
   ]
-} as const;
+};
 
 export function MapView({ 
   center, 
@@ -59,20 +59,43 @@ export function MapView({
   const [mapLoaded, setMapLoaded] = useState(false);
   const [useMapTiler, setUseMapTiler] = useState(true);
 
+  // Debug logging for props
+  console.log('MapView rendered with:', {
+    center,
+    zoom,
+    markersCount: markers.length,
+    hasUserLocation: !!userLocation,
+    className,
+    mapTilerKey: mapTilerKey ? 'present' : 'missing',
+    loading,
+    error,
+    useMapTiler,
+    mapLoaded
+  });
+
   // Initialize map
   useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
+    if (!mapContainerRef.current) {
+      console.warn('Map container ref not available');
+      return;
+    }
+    
+    if (mapRef.current) {
+      console.log('Map already initialized, skipping');
+      return;
+    }
 
-    // If MapTiler key fails, use fallback after 3 seconds
+    // If MapTiler key fails, use fallback after 2 seconds (faster fallback)
     const fallbackTimer = setTimeout(() => {
       if (loading || error) {
-        console.log('Using OpenStreetMap fallback');
+        console.log('MapTiler timeout - switching to OpenStreetMap fallback');
         setUseMapTiler(false);
       }
-    }, 3000);
+    }, 2000);
 
-    // Wait for MapTiler key or use fallback
-    if (useMapTiler && !mapTilerKey && !error) {
+    // Wait for MapTiler key or use fallback immediately if there's an error
+    if (useMapTiler && !mapTilerKey && !error && loading) {
+      console.log('Waiting for MapTiler key...');
       return () => clearTimeout(fallbackTimer);
     }
 
@@ -82,13 +105,23 @@ export function MapView({
         : FALLBACK_STYLE;
 
       console.log('Initializing map with style:', useMapTiler ? 'MapTiler' : 'OpenStreetMap');
+      console.log('Map container dimensions:', {
+        width: mapContainerRef.current.clientWidth,
+        height: mapContainerRef.current.clientHeight,
+        offsetWidth: mapContainerRef.current.offsetWidth,
+        offsetHeight: mapContainerRef.current.offsetHeight
+      });
 
       const map = new Map({
         container: mapContainerRef.current,
-        style: mapStyle,
+        style: mapStyle as any, // Type assertion for fallback style
         center: center,
         zoom: zoom,
-        attributionControl: true
+        attributionControl: false,
+        crossSourceCollisions: false, // Improve performance
+        optimizeForTerrain: false, // Disable for better compatibility
+        preserveDrawingBuffer: false, // Improve performance
+        antialias: false // Improve performance on mobile
       });
 
       // Add navigation control
@@ -96,25 +129,49 @@ export function MapView({
 
       // Handle map load
       map.on('load', () => {
-        console.log('Map loaded successfully');
+        console.log('✅ Map loaded successfully');
+        console.log('Map loaded event - style:', useMapTiler ? 'MapTiler' : 'OpenStreetMap');
         setMapLoaded(true);
       });
 
       // Handle map clicks
       if (onMapClick) {
         map.on('click', (e) => {
+          console.log('Map clicked at:', { lng: e.lngLat.lng, lat: e.lngLat.lat });
           onMapClick({ lng: e.lngLat.lng, lat: e.lngLat.lat });
         });
       }
 
       // Handle errors
       map.on('error', (e) => {
-        console.error('MapLibre error:', e);
+        console.error('❌ MapLibre error:', e);
+        console.error('Error details:', {
+          type: e.type,
+          target: e.target?.constructor?.name,
+          useMapTiler,
+          error: e.error?.message || 'No error message'
+        });
+        
         // If MapTiler fails, try fallback
         if (useMapTiler && !error) {
-          console.log('MapTiler failed, switching to fallback');
+          console.log('🔄 MapTiler failed, switching to OpenStreetMap fallback');
           setUseMapTiler(false);
         }
+      });
+
+      // Additional debug events
+      map.on('sourcedata', (e) => {
+        if (e.isSourceLoaded) {
+          console.log('📊 Source data loaded:', e.sourceId);
+        }
+      });
+
+      map.on('styledata', () => {
+        console.log('🎨 Style data loaded');
+      });
+
+      map.on('idle', () => {
+        console.log('💤 Map is idle (fully loaded)');
       });
 
       mapRef.current = map;
@@ -146,15 +203,35 @@ export function MapView({
 
   // Update activity markers
   useEffect(() => {
-    if (!mapRef.current || !mapLoaded) return;
+    console.log('🏷️ Markers effect triggered:', {
+      hasMap: !!mapRef.current,
+      mapLoaded,
+      markersCount: markers.length
+    });
+
+    if (!mapRef.current || !mapLoaded) {
+      console.log('⏳ Skipping markers update - map not ready');
+      return;
+    }
 
     // Clear existing markers
+    console.log('🧹 Clearing existing markers:', markersRef.current.length);
     markersRef.current.forEach(marker => marker.remove());
     markersRef.current = [];
 
     // Add new markers
-    markers.forEach(({ coords, activity }) => {
-      if (!activity) return;
+    console.log('📍 Adding new markers:', markers.length);
+    markers.forEach(({ coords, activity }, index) => {
+      if (!activity) {
+        console.warn(`Marker ${index} has no activity data`);
+        return;
+      }
+
+      console.log(`Adding marker ${index + 1}/${markers.length}:`, {
+        title: activity.title,
+        coords,
+        category: activity.category
+      });
 
       // Create marker element
       const el = document.createElement('div');
@@ -207,20 +284,34 @@ export function MapView({
 
       markersRef.current.push(marker);
     });
+
+    console.log(`✅ Successfully added ${markersRef.current.length} markers to map`);
   }, [markers, mapLoaded, onMarkerClick]);
 
   // Update user location marker
   useEffect(() => {
-    if (!mapRef.current || !mapLoaded) return;
+    console.log('👤 User location effect triggered:', {
+      hasMap: !!mapRef.current,
+      mapLoaded,
+      hasUserLocation: !!userLocation,
+      userLocation: userLocation ? { lat: userLocation.lat, lng: userLocation.lng, accuracy: userLocation.accuracy } : null
+    });
+
+    if (!mapRef.current || !mapLoaded) {
+      console.log('⏳ Skipping user location update - map not ready');
+      return;
+    }
 
     // Remove existing user marker
     if (userMarkerRef.current) {
+      console.log('🧹 Removing existing user location marker');
       userMarkerRef.current.remove();
       userMarkerRef.current = null;
     }
 
     // Add user location marker
     if (userLocation) {
+      console.log('📍 Adding user location marker at:', { lat: userLocation.lat, lng: userLocation.lng });
       const el = document.createElement('div');
       el.className = 'user-marker';
       el.innerHTML = '📍';
@@ -256,11 +347,15 @@ export function MapView({
       marker.setPopup(popup);
       
       userMarkerRef.current = marker;
+      console.log('✅ User location marker added successfully');
+    } else {
+      console.log('ℹ️ No user location to display');
     }
   }, [userLocation, mapLoaded]);
 
   // Loading state (only show for MapTiler, not fallback)
   if (useMapTiler && loading) {
+    console.log('🔄 Showing loading state for MapTiler');
     return (
       <div className={`${className} bg-gray-100 animate-pulse flex items-center justify-center`}>
         <div className="text-center">
@@ -274,6 +369,7 @@ export function MapView({
 
   // Error state (only show if both MapTiler and fallback fail)
   if (error && !useMapTiler) {
+    console.error('❌ Showing error state - both MapTiler and fallback failed');
     return (
       <div className={`${className} bg-gray-50 flex items-center justify-center p-4`}>
         <div className="text-center max-w-sm">
@@ -284,6 +380,7 @@ export function MapView({
           </p>
           <Button 
             onClick={() => {
+              console.log('🔄 Retry button clicked');
               setUseMapTiler(true);
               retry();
             }} 
@@ -300,6 +397,7 @@ export function MapView({
   }
 
   // Map container
+  console.log('🗺️ Rendering map container');
   return (
     <div className={`${className} map-container`}>
       <div 
@@ -314,12 +412,15 @@ export function MapView({
           </div>
         )}
         
-        {/* Debug info */}
+        {/* Enhanced debug info */}
         {process.env.NODE_ENV === 'development' && (
-          <div className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded z-[1000]">
-            Map: {mapLoaded ? 'Loaded' : 'Loading'} | 
-            Style: {useMapTiler ? 'MapTiler' : 'OSM'} | 
-            Markers: {markers.length}
+          <div className="absolute bottom-2 left-2 bg-black bg-opacity-75 text-white text-xs px-2 py-1 rounded z-[1000] max-w-xs">
+            <div>Map: {mapLoaded ? '✅ Loaded' : '⏳ Loading'}</div>
+            <div>Style: {useMapTiler ? '🌍 MapTiler' : '🗺️ OSM'}</div>
+            <div>Markers: {markers.length}</div>
+            <div>User: {userLocation ? '📍 Yes' : '❌ No'}</div>
+            <div>Container: {mapContainerRef.current ? '✅ Ready' : '❌ Missing'}</div>
+            <div>Error: {error ? '❌ Yes' : '✅ No'}</div>
           </div>
         )}
       </div>
