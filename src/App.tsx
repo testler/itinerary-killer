@@ -50,6 +50,10 @@ function App() {
     priceRange: { min: null, max: null },
     durationRange: { min: null, max: null }
   });
+
+  // Settings hook - must be called before using userSettings
+  const userSettings = useSettings();
+
   const [hideDone, setHideDone] = useState(() => {
     try {
       const saved = localStorage.getItem('hide-done-activities');
@@ -69,9 +73,6 @@ function App() {
 
   // Data hooks
   const { items, addItem, addItems, updateItem, deleteItem, loading } = useSpacetimeDB();
-  
-  // Settings hook
-  const userSettings = useSettings();
 
   // Apply filters first, then sorting
   const filteredItems = applyFilters(items, filters);
