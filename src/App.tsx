@@ -9,6 +9,9 @@ import { DoneActivitiesView } from './components/DoneActivitiesView';
 import { ActivitySortToggle } from './components/ActivitySortToggle';
 import { MapView } from './components/MapView';
 import { LocationRefreshButton } from './components/LocationRefreshButton';
+import { DuplicateManagementModal } from './components/DuplicateManagementModal';
+import { FilterPanel, FilterOptions, applyFilters } from './components/FilterPanel';
+import { SettingsModal } from './components/SettingsModal';
 import { useSpacetimeDB } from './hooks/useSpacetimeDB';
 import { useActivitySorting } from './hooks/useActivitySorting';
 
@@ -36,6 +39,17 @@ function App() {
   const [showMobileNav, setShowMobileNav] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [filters, setFilters] = useState<FilterOptions>({
+    categories: [],
+    priorities: [],
+    completionStatus: 'all',
+    showDone: true,
+    priceRange: { min: null, max: null },
+    durationRange: { min: null, max: null }
+  });
   const [hideDone, setHideDone] = useState(() => {
     try {
       return localStorage.getItem('hide-done-activities') !== 'false';
@@ -55,6 +69,9 @@ function App() {
   // Data hooks
   const { items, addItem, addItems, updateItem, deleteItem, loading } = useSpacetimeDB();
 
+  // Apply filters first, then sorting
+  const filteredItems = applyFilters(items, filters);
+  
   // Activity sorting
   const {
     sortedActivities,
@@ -64,10 +81,13 @@ function App() {
     locationError: sortLocationError,
     requestLocation
   } = useActivitySorting({
-    activities: items,
+    activities: filteredItems,
     userLocation,
     defaultSortMode: 'proximity'
   });
+
+  const doneActivities = sortedActivities.filter(item => item.done);
+  const _activeActivities = sortedActivities.filter(item => !item.done);
 
   // Handle authentication
   const handleAuthenticated = () => {
@@ -169,6 +189,63 @@ function App() {
     }
   };
 
+  const handleDeleteMultiple = async (ids: string[]) => {
+    try {
+      // Delete all items concurrently
+      await Promise.all(ids.map(id => deleteItem(id)));
+    } catch (error) {
+      console.error('Failed to delete activities:', error);
+      throw error;
+    }
+  };
+
+  const handleDeleteDuplicates = () => {
+    setShowDuplicateModal(true);
+  };
+
+  const handleFilterToggle = () => {
+    setShowFilters(!showFilters);
+  };
+
+  const handleOpenSettings = () => {
+    setShowSettingsModal(true);
+    setShowMobileNav(false); // Close mobile nav when opening settings
+  };
+
+  const handleRefreshAllActivities = async () => {
+    const { getCoordinatesFromAddress } = await import('./utils/location');
+    
+    const updatePromises = items.map(async (item) => {
+      try {
+        // Get fresh coordinates for each activity
+        const coordinates = await getCoordinatesFromAddress(item.address);
+        
+        if (coordinates) {
+          // Update the item with new location data
+          await updateItem(item.id, {
+            location: {
+              lat: coordinates.lat,
+              lng: coordinates.lng
+            }
+          });
+          console.log(`Updated location for: ${item.title}`);
+        } else {
+          console.warn(`Could not geocode address for: ${item.title} - ${item.address}`);
+        }
+      } catch (error) {
+        console.error(`Failed to update location for ${item.title}:`, error);
+      }
+    });
+
+    try {
+      // Wait for all updates to complete
+      await Promise.allSettled(updatePromises);
+      console.log('Finished refreshing all activity locations');
+    } catch (error) {
+      console.error('Error during bulk location refresh:', error);
+    }
+  };
+
   const handleMapClick = (event: { lng: number; lat: number }) => {
     // You could implement add activity at clicked location here
     console.log('Map clicked at:', event);
@@ -216,8 +293,7 @@ function App() {
     return validMarkers;
   };
 
-  // Get done activities
-  const doneActivities = items.filter(item => item.done);
+
 
   // Show authentication if not authed and password is set
   if (!isAuthenticated && sitePassword) {
@@ -225,14 +301,14 @@ function App() {
   }
 
   return (
-    <div className="h-screen overflow-hidden bg-background">
+    <div className="h-screen overflow-hidden bg-gray-50">
       {/* Mobile Header */}
       <div className="lg:hidden">
         <MobileHeader 
           onMenuToggle={() => setShowMobileNav(!showMobileNav)}
           onAddActivity={() => setShowAddModal(true)}
           onImportJson={() => setShowImportModal(true)}
-          onDeleteDuplicates={() => {}} // Placeholder
+          onDeleteDuplicates={handleDeleteDuplicates}
           isMenuOpen={showMobileNav}
           totalActivities={items.length}
         />
@@ -244,11 +320,11 @@ function App() {
           <DesktopSidebar
             currentView={currentView === 'done' ? 'list' : currentView}
             onViewChange={(view) => setCurrentView(view)}
-            onFilterToggle={() => {}} // Placeholder
+            onFilterToggle={handleFilterToggle}
             onAddActivity={() => setShowAddModal(true)}
             onImportJson={() => setShowImportModal(true)}
-            onDeleteDuplicates={() => {}} // Placeholder
-            showFilters={false}
+            onDeleteDuplicates={handleDeleteDuplicates}
+            showFilters={showFilters}
             totalActivities={items.length}
           >
             <div>Sidebar content will go here</div>
@@ -266,8 +342,9 @@ function App() {
                 setCurrentView(view);
                 setShowMobileNav(false);
               }}
-              onFilterToggle={() => {}} // Placeholder
-              showFilters={false}
+              onFilterToggle={handleFilterToggle}
+              showFilters={showFilters}
+              onOpenSettings={handleOpenSettings}
             />
           </div>
         )}
@@ -285,7 +362,7 @@ function App() {
                   </h1>
                   <LocationRefreshButton 
                     onRefreshLocation={getUserLocation}
-                    onRefreshAllActivities={async () => {}}
+                    onRefreshAllActivities={handleRefreshAllActivities}
                     hasLocation={!!userLocation}
                     isLoading={locationLoading}
                   />
@@ -340,6 +417,18 @@ function App() {
                       <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                     </label>
                   </div>
+                )}
+
+                {/* Filter Panel */}
+                {showFilters && (
+                  <FilterPanel
+                    isOpen={showFilters}
+                    onClose={() => setShowFilters(false)}
+                    filters={filters}
+                    onFiltersChange={setFilters}
+                    activities={items}
+                    className="mt-4"
+                  />
                 )}
               </div>
 
@@ -406,7 +495,7 @@ function App() {
                       </h1>
                       <LocationRefreshButton 
                         onRefreshLocation={getUserLocation}
-                        onRefreshAllActivities={async () => {}}
+                        onRefreshAllActivities={handleRefreshAllActivities}
                         hasLocation={!!userLocation}
                         isLoading={locationLoading}
                       />
@@ -463,6 +552,18 @@ function App() {
                         </label>
                       </div>
                     )}
+
+                    {/* Filter Panel */}
+                    {showFilters && (
+                      <FilterPanel
+                        isOpen={showFilters}
+                        onClose={() => setShowFilters(false)}
+                        filters={filters}
+                        onFiltersChange={setFilters}
+                        activities={items}
+                        className="mt-4"
+                      />
+                    )}
                   </div>
 
                   {/* Activities Content */}
@@ -513,6 +614,20 @@ function App() {
           />
         </Suspense>
       )}
+
+      {/* Duplicate Management Modal */}
+      <DuplicateManagementModal
+        isOpen={showDuplicateModal}
+        onClose={() => setShowDuplicateModal(false)}
+        activities={items}
+        onDeleteActivities={handleDeleteMultiple}
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+      />
     </div>
   );
 }

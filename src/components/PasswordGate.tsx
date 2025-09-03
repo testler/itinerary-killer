@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Button, FormField, SafeAreaFooter } from '../ui';
+import { Eye, EyeOff } from 'lucide-react';
 
 type PasswordGateProps = {
   expectedPassword: string | undefined;
@@ -9,6 +10,7 @@ type PasswordGateProps = {
 export default function PasswordGate({ expectedPassword, onAuthenticated }: PasswordGateProps) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
   const hasPassword = useMemo(() => typeof expectedPassword === 'string' && expectedPassword.length > 0, [expectedPassword]);
   // PasswordGate is UI-only again; external verification should gate rendering
 
@@ -38,14 +40,38 @@ export default function PasswordGate({ expectedPassword, onAuthenticated }: Pass
         </div>
         <div className="modal-body">
           <FormField id="password" label="Password" error={error || undefined}>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
-              placeholder="Enter password"
-              inputMode="text"
-            />
+            <div style={{ position: 'relative' }}>
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') submit(); }}
+                placeholder="Enter password"
+                inputMode="text"
+                style={{ paddingRight: '40px' }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                style={{
+                  position: 'absolute',
+                  right: '8px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  background: 'none',
+                  border: 'none',
+                  cursor: 'pointer',
+                  padding: '4px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#666'
+                }}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </FormField>
         </div>
         <SafeAreaFooter>

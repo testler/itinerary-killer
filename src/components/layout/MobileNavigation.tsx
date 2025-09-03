@@ -9,6 +9,7 @@ interface MobileNavigationProps {
   onViewChange: (view: 'map' | 'list') => void;
   onFilterToggle: () => void;
   showFilters: boolean;
+  onOpenSettings?: () => void;
 }
 
 export function MobileNavigation({
@@ -17,7 +18,8 @@ export function MobileNavigation({
   currentView,
   onViewChange,
   onFilterToggle,
-  showFilters
+  showFilters,
+  onOpenSettings
 }: MobileNavigationProps) {
   // Lock body scroll when menu is open
   useEffect(() => {
@@ -143,6 +145,7 @@ export function MobileNavigation({
             <div className="border-t border-gray-200 my-4" />
             
             <button 
+              onClick={onOpenSettings}
               className="w-full flex items-center gap-3 p-4 rounded-lg text-left hover:bg-gray-100 text-gray-700 transition-colors touch-target active:bg-gray-200"
               style={{ minHeight: '56px' }}
             >
