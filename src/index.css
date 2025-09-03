@@ -3421,6 +3421,21 @@ textarea:focus-visible {
   background: #94a3b8;
 }
 
+/* Improved mobile scrolling for list views */
+.mobile-list-scrollable {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scroll-behavior: smooth;
+}
+
+/* Fix iOS scroll momentum and bounce */
+@supports (-webkit-touch-callout: none) {
+  .mobile-list-scrollable {
+    -webkit-overflow-scrolling: touch;
+    -webkit-transform: translateZ(0);
+  }
+}
+
 /* Very small screen optimizations */
 @media (max-width: 360px) {
   .sidebar {

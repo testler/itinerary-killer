@@ -3,9 +3,10 @@ export function calculateDistance(
   lat1: number,
   lon1: number,
   lat2: number,
-  lon2: number
+  lon2: number,
+  units: 'metric' | 'imperial' = 'imperial'
 ): number {
-  const R = 3959; // Earth's radius in miles
+  const R = units === 'metric' ? 6371 : 3959; // Earth's radius in km or miles
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = 
@@ -14,6 +15,23 @@ export function calculateDistance(
     Math.sin(dLon/2) * Math.sin(dLon/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c;
+}
+
+// Format distance with appropriate units
+export function formatDistance(distance: number, units: 'metric' | 'imperial' = 'imperial'): string {
+  if (units === 'metric') {
+    if (distance < 1) {
+      return `${Math.round(distance * 1000)}m`;
+    } else {
+      return `${distance.toFixed(1)}km`;
+    }
+  } else {
+    if (distance < 1) {
+      return `${Math.round(distance * 5280)}ft`;
+    } else {
+      return `${distance.toFixed(1)}mi`;
+    }
+  }
 }
 
 // Convert coordinates to address using reverse geocoding
@@ -75,16 +93,7 @@ export function isInOrlandoArea(lat: number, lng: number): boolean {
          lng <= orlandoBounds.east;
 }
 
-// Format distance for display
-export function formatDistance(distance: number): string {
-  if (distance < 0.1) {
-    return `${Math.round(distance * 5280)} ft`;
-  } else if (distance < 1) {
-    return `${Math.round(distance * 5280 / 100) * 100} ft`;
-  } else {
-    return `${distance.toFixed(1)} mi`;
-  }
-}
+
 
 // Fetch place details (including opening hours) from Google Places API via proxy
 export async function fetchPlaceDetailsFromGoogle(name: string, address: string): Promise<any> {

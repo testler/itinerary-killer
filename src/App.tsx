@@ -1,4 +1,4 @@
-import { useState, Suspense, lazy } from 'react';
+import { useState, useEffect, Suspense, lazy } from 'react';
 import { ItineraryItem, UserLocation } from './types';
 import { ModernPasswordGate } from './components/auth/ModernPasswordGate';
 import { MobileHeader } from './components/layout/MobileHeader';
@@ -11,7 +11,7 @@ import { MapView } from './components/MapView';
 import { LocationRefreshButton } from './components/LocationRefreshButton';
 import { DuplicateManagementModal } from './components/DuplicateManagementModal';
 import { FilterPanel, FilterOptions, applyFilters } from './components/FilterPanel';
-import { SettingsModal } from './components/SettingsModal';
+import { SettingsModal, useSettings } from './components/SettingsModal';
 import { useSpacetimeDB } from './hooks/useSpacetimeDB';
 import { useActivitySorting } from './hooks/useActivitySorting';
 
@@ -52,9 +52,10 @@ function App() {
   });
   const [hideDone, setHideDone] = useState(() => {
     try {
-      return localStorage.getItem('hide-done-activities') !== 'false';
+      const saved = localStorage.getItem('hide-done-activities');
+      return saved !== null ? saved !== 'false' : userSettings.hideDoneByDefault;
     } catch {
-      return true;
+      return userSettings.hideDoneByDefault;
     }
   });
 
@@ -68,6 +69,9 @@ function App() {
 
   // Data hooks
   const { items, addItem, addItems, updateItem, deleteItem, loading } = useSpacetimeDB();
+  
+  // Settings hook
+  const userSettings = useSettings();
 
   // Apply filters first, then sorting
   const filteredItems = applyFilters(items, filters);
@@ -83,11 +87,50 @@ function App() {
   } = useActivitySorting({
     activities: filteredItems,
     userLocation,
-    defaultSortMode: 'proximity'
+    defaultSortMode: userSettings.defaultSortMode,
+    units: userSettings.units
   });
 
   const doneActivities = sortedActivities.filter(item => item.done);
   const _activeActivities = sortedActivities.filter(item => !item.done);
+
+  // Auto location refresh effect
+  useEffect(() => {
+    if (userSettings.autoLocationRefresh && items.length > 0) {
+      const interval = setInterval(() => {
+        console.log('🔄 Auto-refreshing activity locations');
+        handleRefreshAllActivities();
+      }, 30 * 60 * 1000); // Refresh every 30 minutes
+
+      return () => clearInterval(interval);
+    }
+  }, [userSettings.autoLocationRefresh, items.length]);
+
+  // Theme effect
+  useEffect(() => {
+    const applyTheme = (theme: 'light' | 'dark') => {
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else {
+        document.documentElement.classList.remove('dark');
+      }
+    };
+
+    if (userSettings.theme === 'system') {
+      // Use system preference
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      applyTheme(mediaQuery.matches ? 'dark' : 'light');
+      
+      const handleChange = (e: MediaQueryListEvent) => {
+        applyTheme(e.matches ? 'dark' : 'light');
+      };
+      
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    } else {
+      applyTheme(userSettings.theme);
+    }
+  }, [userSettings.theme]);
 
   // Handle authentication
   const handleAuthenticated = () => {
@@ -485,88 +528,88 @@ function App() {
                 />
               </div>
             ) : (
-              <div className="flex-1 overflow-y-auto">
-                <div className="p-4">
-                  {/* Mobile Controls */}
-                  <div className="mb-4">
-                    <div className="flex items-center justify-between mb-4">
-                      <h1 className="text-xl font-semibold">
-                        {currentView === 'done' ? 'Completed Activities' : 'Activities'}
-                      </h1>
-                      <LocationRefreshButton 
-                        onRefreshLocation={getUserLocation}
-                        onRefreshAllActivities={handleRefreshAllActivities}
-                        hasLocation={!!userLocation}
-                        isLoading={locationLoading}
-                      />
-                    </div>
-
-                    {/* View Toggle */}
-                    <div className="flex bg-gray-100 rounded-lg p-1 mb-4">
-                      <button
-                        onClick={() => setCurrentView('list')}
-                        className={`flex-1 py-2 px-3 text-sm rounded-md transition-colors ${
-                          currentView === 'list' 
-                            ? 'bg-white shadow-sm text-primary' 
-                            : 'text-secondary hover:text-primary'
-                        }`}
-                      >
-                        Active
-                      </button>
-                      <button
-                        onClick={() => setCurrentView('done')}
-                        className={`flex-1 py-2 px-3 text-sm rounded-md transition-colors ${
-                          currentView === 'done' 
-                            ? 'bg-white shadow-sm text-primary' 
-                            : 'text-secondary hover:text-primary'
-                        }`}
-                      >
-                        Done ({doneActivities.length})
-                      </button>
-                    </div>
-
-                    {/* Sorting Controls - only show for active activities */}
-                    {currentView !== 'done' && (
-                      <ActivitySortToggle
-                        sortMode={sortMode}
-                        onSortModeChange={setSortMode}
-                        locationLoading={sortLocationLoading}
-                        locationError={sortLocationError}
-                        onRequestLocation={requestLocation}
-                        className="mb-4"
-                      />
-                    )}
-
-                    {/* Hide Done Toggle - only show for active activities */}
-                    {currentView !== 'done' && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm text-secondary">Hide completed</span>
-                        <label className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            type="checkbox"
-                            checked={hideDone}
-                            onChange={(e) => handleHideDoneToggle(e.target.checked)}
-                            className="sr-only peer"
-                          />
-                          <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                        </label>
-                      </div>
-                    )}
-
-                    {/* Filter Panel */}
-                    {showFilters && (
-                      <FilterPanel
-                        isOpen={showFilters}
-                        onClose={() => setShowFilters(false)}
-                        filters={filters}
-                        onFiltersChange={setFilters}
-                        activities={items}
-                        className="mt-4"
-                      />
-                    )}
+              <div className="flex-1 flex flex-col min-h-0">
+                {/* Fixed Mobile Controls */}
+                <div className="flex-shrink-0 p-4 border-b border-gray-200">
+                  <div className="flex items-center justify-between mb-4">
+                    <h1 className="text-xl font-semibold">
+                      {currentView === 'done' ? 'Completed Activities' : 'Activities'}
+                    </h1>
+                    <LocationRefreshButton 
+                      onRefreshLocation={getUserLocation}
+                      onRefreshAllActivities={handleRefreshAllActivities}
+                      hasLocation={!!userLocation}
+                      isLoading={locationLoading}
+                    />
                   </div>
 
-                  {/* Activities Content */}
+                  {/* View Toggle */}
+                  <div className="flex bg-gray-100 rounded-lg p-1 mb-4">
+                    <button
+                      onClick={() => setCurrentView('list')}
+                      className={`flex-1 py-2 px-3 text-sm rounded-md transition-colors ${
+                        currentView === 'list' 
+                          ? 'bg-white shadow-sm text-primary' 
+                          : 'text-secondary hover:text-primary'
+                      }`}
+                    >
+                      Active
+                    </button>
+                    <button
+                      onClick={() => setCurrentView('done')}
+                      className={`flex-1 py-2 px-3 text-sm rounded-md transition-colors ${
+                        currentView === 'done' 
+                          ? 'bg-white shadow-sm text-primary' 
+                          : 'text-secondary hover:text-primary'
+                      }`}
+                    >
+                      Done ({doneActivities.length})
+                    </button>
+                  </div>
+
+                  {/* Sorting Controls - only show for active activities */}
+                  {currentView !== 'done' && (
+                    <ActivitySortToggle
+                      sortMode={sortMode}
+                      onSortModeChange={setSortMode}
+                      locationLoading={sortLocationLoading}
+                      locationError={sortLocationError}
+                      onRequestLocation={requestLocation}
+                      className="mb-4"
+                    />
+                  )}
+
+                  {/* Hide Done Toggle - only show for active activities */}
+                  {currentView !== 'done' && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-secondary">Hide completed</span>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={hideDone}
+                          onChange={(e) => handleHideDoneToggle(e.target.checked)}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                  )}
+
+                  {/* Filter Panel */}
+                  {showFilters && (
+                    <FilterPanel
+                      isOpen={showFilters}
+                      onClose={() => setShowFilters(false)}
+                      filters={filters}
+                      onFiltersChange={setFilters}
+                      activities={items}
+                      className="mt-4"
+                    />
+                  )}
+                </div>
+
+                {/* Scrollable Activities Content */}
+                <div className="flex-1 overflow-y-auto p-4 mobile-list-scrollable">
                   {currentView === 'done' ? (
                     <DoneActivitiesView
                       doneActivities={doneActivities}
@@ -602,6 +645,7 @@ function App() {
             onClose={() => setShowAddModal(false)}
             onAdd={addItem}
             userLocation={userLocation}
+            defaultDuration={userSettings.defaultActivityDuration}
           />
         </Suspense>
       )}

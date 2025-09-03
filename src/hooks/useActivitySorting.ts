@@ -8,6 +8,7 @@ interface UseActivitySortingProps {
   activities: ItineraryItem[];
   userLocation: UserLocation | null;
   defaultSortMode?: SortMode;
+  units?: 'metric' | 'imperial';
 }
 
 interface UseActivitySortingReturn {
@@ -22,7 +23,8 @@ interface UseActivitySortingReturn {
 export function useActivitySorting({ 
   activities, 
   userLocation: providedUserLocation,
-  defaultSortMode = 'proximity' 
+  defaultSortMode = 'proximity',
+  units = 'imperial'
 }: UseActivitySortingProps): UseActivitySortingReturn {
   const [sortMode, setSortMode] = useState<SortMode>(() => {
     // Try to load from localStorage
@@ -127,7 +129,8 @@ export function useActivitySorting({
               userLocation.lat,
               userLocation.lng,
               activity.location.lat,
-              activity.location.lng
+              activity.location.lng,
+              units
             );
             hasValidCoords = true;
           } catch {

@@ -8,6 +8,7 @@ interface ModernAddItemModalProps {
   onClose: () => void;
   onAdd: (item: ItineraryItem) => void;
   userLocation?: UserLocation | null;
+  defaultDuration?: number;
 }
 
 const CATEGORIES = [
@@ -28,14 +29,14 @@ const PRIORITIES = [
   { value: 'low', label: 'Low Priority', color: 'success' }
 ];
 
-export function ModernAddItemModal({ onClose, onAdd, userLocation }: ModernAddItemModalProps) {
+export function ModernAddItemModal({ onClose, onAdd, userLocation, defaultDuration = 60 }: ModernAddItemModalProps) {
   const [formData, setFormData] = useState({
     title: '',
     description: '',
     address: '',
     category: 'Other',
     priority: 'medium',
-    estimatedDuration: 60,
+    estimatedDuration: defaultDuration,
     cost: 0
   });
 
