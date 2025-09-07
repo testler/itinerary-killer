@@ -1,10 +1,10 @@
 import React from 'react';
-import { MapPin, List, Filter, Settings, Plus, Upload, Trash2 } from 'lucide-react';
+import { MapPin, List, Filter, Settings, Plus, Upload, Trash2, Calendar } from 'lucide-react';
 import { Button } from '../ui';
 
 interface DesktopSidebarProps {
-  currentView: 'map' | 'list';
-  onViewChange: (view: 'map' | 'list') => void;
+  currentView: 'map' | 'list' | 'calendar';
+  onViewChange: (view: 'map' | 'list' | 'calendar') => void;
   onFilterToggle: () => void;
   onAddActivity: () => void;
   onImportJson: () => void;
@@ -76,28 +76,41 @@ export function DesktopSidebar({
           <button
             onClick={() => onViewChange('map')}
             className={`
-              flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors
+              flex-1 flex items-center justify-center gap-1 py-2 px-2 rounded-md text-sm font-medium transition-colors
               ${currentView === 'map' 
                 ? 'bg-white text-primary shadow-sm' 
                 : 'text-gray-600 hover:text-gray-800'
               }
             `}
           >
-            <MapPin size={16} />
+            <MapPin size={14} />
             Map
           </button>
           <button
             onClick={() => onViewChange('list')}
             className={`
-              flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-md text-sm font-medium transition-colors
+              flex-1 flex items-center justify-center gap-1 py-2 px-2 rounded-md text-sm font-medium transition-colors
               ${currentView === 'list' 
                 ? 'bg-white text-primary shadow-sm' 
                 : 'text-gray-600 hover:text-gray-800'
               }
             `}
           >
-            <List size={16} />
+            <List size={14} />
             List
+          </button>
+          <button
+            onClick={() => onViewChange('calendar')}
+            className={`
+              flex-1 flex items-center justify-center gap-1 py-2 px-2 rounded-md text-sm font-medium transition-colors
+              ${currentView === 'calendar' 
+                ? 'bg-white text-primary shadow-sm' 
+                : 'text-gray-600 hover:text-gray-800'
+              }
+            `}
+          >
+            <Calendar size={14} />
+            Calendar
           </button>
         </div>
         

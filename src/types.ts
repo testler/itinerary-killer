@@ -22,6 +22,11 @@ export interface ItineraryItem {
   completed: boolean;
   done: boolean;
   completedAt?: Date;
+  // Calendar scheduling fields
+  scheduledDate?: Date; // The date this activity is scheduled for
+  startTime?: string; // Start time in HH:mm format (optional)
+  endTime?: string; // End time in HH:mm format (optional)
+  allDay?: boolean; // Whether this is an all-day activity
 }
 
 export interface UserLocation {

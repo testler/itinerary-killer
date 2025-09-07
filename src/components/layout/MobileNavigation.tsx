@@ -1,12 +1,12 @@
 import React, { useEffect } from 'react';
-import { MapPin, List, Filter, Settings, X } from 'lucide-react';
+import { MapPin, List, Filter, Settings, X, Calendar } from 'lucide-react';
 import { Button } from '../ui';
 
 interface MobileNavigationProps {
   isOpen: boolean;
   onClose: () => void;
-  currentView: 'map' | 'list';
-  onViewChange: (view: 'map' | 'list') => void;
+  currentView: 'map' | 'list' | 'calendar';
+  onViewChange: (view: 'map' | 'list' | 'calendar') => void;
   onFilterToggle: () => void;
   showFilters: boolean;
   onOpenSettings?: () => void;
@@ -122,6 +122,24 @@ export function MobileNavigation({
             >
               <List size={20} className="flex-shrink-0" />
               <span className="font-medium text-base">List View</span>
+            </button>
+            
+            <button
+              onClick={() => {
+                onViewChange('calendar');
+                onClose();
+              }}
+              className={`
+                w-full flex items-center gap-3 p-4 rounded-lg text-left transition-colors touch-target
+                ${currentView === 'calendar' 
+                  ? 'bg-blue-500 text-white shadow-md' 
+                  : 'hover:bg-gray-100 text-gray-700 active:bg-gray-200'
+                }
+              `}
+              style={{ minHeight: '56px' }}
+            >
+              <Calendar size={20} className="flex-shrink-0" />
+              <span className="font-medium text-base">Calendar View</span>
             </button>
             
             <button

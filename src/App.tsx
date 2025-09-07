@@ -8,6 +8,7 @@ import { ActivityGrid } from './components/ActivityGrid';
 import { DoneActivitiesView } from './components/DoneActivitiesView';
 import { ActivitySortToggle } from './components/ActivitySortToggle';
 import { MapView } from './components/MapView';
+import { CalendarView } from './components/CalendarView';
 import { LocationRefreshButton } from './components/LocationRefreshButton';
 import { DuplicateManagementModal } from './components/DuplicateManagementModal';
 import { FilterPanel, FilterOptions, applyFilters } from './components/FilterPanel';
@@ -35,7 +36,7 @@ function App() {
   });
 
   // UI state
-  const [currentView, setCurrentView] = useState<'map' | 'list' | 'done'>('map');
+  const [currentView, setCurrentView] = useState<'map' | 'list' | 'done' | 'calendar'>('map');
   const [showMobileNav, setShowMobileNav] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
@@ -93,7 +94,6 @@ function App() {
   });
 
   const doneActivities = sortedActivities.filter(item => item.done);
-  const _activeActivities = sortedActivities.filter(item => !item.done);
 
   // Auto location refresh effect
   useEffect(() => {
@@ -362,7 +362,7 @@ function App() {
         {/* Desktop Sidebar */}
         <div className="hidden lg:block">
           <DesktopSidebar
-            currentView={currentView === 'done' ? 'list' : currentView}
+            currentView={currentView === 'done' ? 'list' : (currentView as 'map' | 'list' | 'calendar')}
             onViewChange={(view) => setCurrentView(view)}
             onFilterToggle={handleFilterToggle}
             onAddActivity={() => setShowAddModal(true)}
@@ -381,7 +381,7 @@ function App() {
             <MobileNavigation
               isOpen={showMobileNav}
               onClose={() => setShowMobileNav(false)}
-              currentView={currentView === 'done' ? 'list' : currentView}
+              currentView={currentView === 'done' ? 'list' : (currentView as 'map' | 'list' | 'calendar')}
               onViewChange={(view) => {
                 setCurrentView(view);
                 setShowMobileNav(false);
@@ -397,20 +397,32 @@ function App() {
         <div className="flex-1 flex flex-col min-w-0">
           {/* Desktop Content Area */}
           <div className="hidden lg:flex flex-1 min-h-0">
-            {/* Left Panel - Activities */}
-            <div className="w-96 border-r border-gray-200 flex flex-col">
-              <div className="p-4 border-b border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <h1 className="text-xl font-semibold">
-                    {currentView === 'done' ? 'Completed Activities' : 'Activities'}
-                  </h1>
-                  <LocationRefreshButton 
-                    onRefreshLocation={getUserLocation}
-                    onRefreshAllActivities={handleRefreshAllActivities}
-                    hasLocation={!!userLocation}
-                    isLoading={locationLoading}
-                  />
-                </div>
+            {/* Calendar View - Full Width */}
+            {currentView === 'calendar' ? (
+              <CalendarView
+                activities={sortedActivities}
+                onActivityClick={handleShowOnMap}
+                onAddActivity={() => setShowAddModal(true)}
+                onUpdateActivity={updateItem}
+                userLocation={userLocation}
+                loading={loading}
+              />
+            ) : (
+              <>
+                {/* Left Panel - Activities */}
+                <div className="w-96 border-r border-gray-200 flex flex-col">
+                  <div className="p-4 border-b border-gray-200">
+                    <div className="flex items-center justify-between mb-4">
+                      <h1 className="text-xl font-semibold">
+                        {currentView === 'done' ? 'Completed Activities' : 'Activities'}
+                      </h1>
+                      <LocationRefreshButton 
+                        onRefreshLocation={getUserLocation}
+                        onRefreshAllActivities={handleRefreshAllActivities}
+                        hasLocation={!!userLocation}
+                        isLoading={locationLoading}
+                      />
+                    </div>
 
                 {/* View Toggle */}
                 <div className="flex bg-gray-100 rounded-lg p-1 mb-4">
@@ -500,18 +512,20 @@ function App() {
               </div>
             </div>
 
-            {/* Right Panel - Map */}
-            <div className="flex-1 relative">
-              <MapView
-                center={mapCenter}
-                zoom={13}
-                markers={getMapMarkers()}
-                userLocation={userLocation}
-                onMapClick={handleMapClick}
-                onMarkerClick={handleShowOnMap}
-                className="w-full h-full"
-              />
-            </div>
+                {/* Right Panel - Map */}
+                <div className="flex-1 relative">
+                  <MapView
+                    center={mapCenter}
+                    zoom={13}
+                    markers={getMapMarkers()}
+                    userLocation={userLocation}
+                    onMapClick={handleMapClick}
+                    onMarkerClick={handleShowOnMap}
+                    className="w-full h-full"
+                  />
+                </div>
+              </>
+            )}
           </div>
 
           {/* Mobile Content Area */}
@@ -528,6 +542,15 @@ function App() {
                   className="w-full h-full"
                 />
               </div>
+            ) : currentView === 'calendar' ? (
+              <CalendarView
+                activities={sortedActivities}
+                onActivityClick={handleShowOnMap}
+                onAddActivity={() => setShowAddModal(true)}
+                onUpdateActivity={updateItem}
+                userLocation={userLocation}
+                loading={loading}
+              />
             ) : (
               <div className="flex-1 flex flex-col min-h-0">
                 {/* Fixed Mobile Controls */}

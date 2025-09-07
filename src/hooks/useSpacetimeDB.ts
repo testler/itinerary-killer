@@ -18,6 +18,11 @@ type DbItem = {
   is_open: boolean | null;
   done: boolean | null;
   completed_at: string | null;
+  // Calendar scheduling fields
+  scheduled_date: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  all_day: boolean | null;
   // notes column removed - not in database schema
 };
 
@@ -36,7 +41,12 @@ const fromDb = (r: DbItem): ItineraryItem => ({
   createdAt: r.created_at ? new Date(r.created_at) : new Date(),
   completed: Boolean(r.completed),
   done: Boolean(r.done),
-  completedAt: r.completed_at ? new Date(r.completed_at) : undefined
+  completedAt: r.completed_at ? new Date(r.completed_at) : undefined,
+  // Calendar scheduling fields
+  scheduledDate: r.scheduled_date ? new Date(r.scheduled_date) : undefined,
+  startTime: r.start_time || undefined,
+  endTime: r.end_time || undefined,
+  allDay: r.all_day !== null ? Boolean(r.all_day) : undefined
 });
 
 const toDb = (i: ItineraryItem): DbItem => {
@@ -64,7 +74,12 @@ const toDb = (i: ItineraryItem): DbItem => {
     completed: i.completed,
     done: i.done,
     completed_at: i.completedAt ? i.completedAt.toISOString() : null,
-    is_open: i.isOpen
+    is_open: i.isOpen,
+    // Calendar scheduling fields
+    scheduled_date: i.scheduledDate ? i.scheduledDate.toISOString().split('T')[0] : null, // Store as YYYY-MM-DD
+    start_time: i.startTime || null,
+    end_time: i.endTime || null,
+    all_day: i.allDay !== undefined ? i.allDay : null
     // notes field removed - not in database schema
     // openingHours field not stored in database
   };
